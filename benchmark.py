@@ -48,6 +48,7 @@ ALGORITHMS = {
 }
 
 DATA_DIR = "baseline_data"
+PERM_DIR = "baseline_perms"
 RESULTS_CSV = "baseline_results.csv"
 RESULTS_SUMMARY = "baseline_results_summary.txt"
 
@@ -97,21 +98,41 @@ def generate_and_save():
 # Phase 2: Run experiments
 # ---------------------------------------------------------------------------
 
-def evaluate(P, GT):
-    """Run Hungarian + 4-orientation eval, return best accuracy."""
+def evaluate(P, GT, Src_adj, Tar_adj):
+    """Run Hungarian + 4-orientation eval, return best accuracy and Frobenius norm."""
     if isinstance(P, torch.Tensor):
         P = P.detach().numpy()
     row_ind, col_ind = scipy.optimize.linear_sum_assignment(P, maximize=True)
     GT0, GT1 = GT
-    return max(
-        eval_align(row_ind, col_ind, GT0),
-        eval_align(row_ind, col_ind, GT1),
-        eval_align(col_ind, row_ind, GT0),
-        eval_align(col_ind, row_ind, GT1),
-    )
+    candidates = [
+        (eval_align(row_ind, col_ind, GT0), row_ind, col_ind),
+        (eval_align(row_ind, col_ind, GT1), row_ind, col_ind),
+        (eval_align(col_ind, row_ind, GT0), col_ind, row_ind),
+        (eval_align(col_ind, row_ind, GT1), col_ind, row_ind),
+    ]
+    acc, best_r, best_c = max(candidates, key=lambda x: x[0])
+
+    # Add self-loops to isolated nodes (same transform all 4 algorithms apply)
+    Src_sl = Src_adj.copy()
+    Tar_sl = Tar_adj.copy()
+    for i in range(len(Src_sl)):
+        if np.sum(Src_sl[i, :]) == 0:
+            Src_sl[i, i] = 1
+    for i in range(len(Tar_sl)):
+        if np.sum(Tar_sl[i, :]) == 0:
+            Tar_sl[i, i] = 1
+
+    # Frobenius norm using the best alignment: ||Src - Perm @ Tar @ Perm^T||_F^2
+    n = len(best_r)
+    Perm = np.zeros((n, n))
+    Perm[best_r, best_c] = 1.0
+    frob_norm = np.linalg.norm(Src_sl - Perm @ Tar_sl @ Perm.T, 'fro') ** 2
+
+    return acc, frob_norm
 
 
 def run_experiments():
+    os.makedirs(PERM_DIR, exist_ok=True)
     results = []
 
     for ds_name in DATASETS:
@@ -131,20 +152,36 @@ def run_experiments():
                 GT = (data["GT0"], data["GT1"])
 
                 for algo_name, algo_fn in ALGORITHMS.items():
-                    # Copy arrays — algorithms mutate inputs (add self-loops)
-                    S = Src_adj.copy()
-                    T = Tar_adj.copy()
+                    perm_fname = f"{ds_name}_noise{noise_pct}_trial{trial_idx}_{algo_name}.npz"
+                    perm_fpath = os.path.join(PERM_DIR, perm_fname)
 
-                    print(f"  Running {algo_name} on {ds_name} "
-                          f"noise={noise_pct}% trial={trial_idx} ...",
-                          end="", flush=True)
+                    if os.path.exists(perm_fpath):
+                        # Load cached permutation matrix
+                        cached = np.load(perm_fpath)
+                        P = cached["P"]
+                        elapsed = float(cached["time_sec"])
+                        print(f"  [cached] {algo_name} on {ds_name} "
+                              f"noise={noise_pct}% trial={trial_idx} ...",
+                              end="", flush=True)
+                    else:
+                        # Copy arrays — algorithms mutate inputs (add self-loops)
+                        S = Src_adj.copy()
+                        T = Tar_adj.copy()
 
-                    t0 = time.time()
-                    P = algo_fn(S, T)
-                    elapsed = time.time() - t0
+                        print(f"  Running {algo_name} on {ds_name} "
+                              f"noise={noise_pct}% trial={trial_idx} ...",
+                              end="", flush=True)
 
-                    acc = evaluate(P, GT)
-                    print(f"  acc={acc:.4f}  time={elapsed:.1f}s")
+                        t0 = time.time()
+                        P = algo_fn(S, T)
+                        elapsed = time.time() - t0
+
+                        if isinstance(P, torch.Tensor):
+                            P = P.detach().numpy()
+                        np.savez(perm_fpath, P=P, time_sec=elapsed)
+
+                    acc, frob = evaluate(P, GT, Src_adj, Tar_adj)
+                    print(f"  acc={acc:.4f}  frob={frob:.4f}  time={elapsed:.1f}s")
 
                     results.append({
                         "dataset": ds_name,
@@ -152,6 +189,7 @@ def run_experiments():
                         "trial": trial_idx,
                         "algorithm": algo_name,
                         "accuracy": round(acc, 6),
+                        "frobenius": round(frob, 4),
                         "time_sec": round(elapsed, 2),
                     })
 
@@ -163,7 +201,7 @@ def run_experiments():
 # ---------------------------------------------------------------------------
 
 def save_csv(results):
-    fieldnames = ["dataset", "noise", "trial", "algorithm", "accuracy", "time_sec"]
+    fieldnames = ["dataset", "noise", "trial", "algorithm", "accuracy", "frobenius", "time_sec"]
     with open(RESULTS_CSV, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -179,7 +217,7 @@ def save_summary(results):
         groups.setdefault(key, []).append(r)
 
     lines = []
-    header = f"{'Dataset':<14} {'Noise':>5} {'Algorithm':<14} {'Acc Mean':>9} {'Acc Std':>9} {'Time Mean':>10}"
+    header = f"{'Dataset':<14} {'Noise':>5} {'Algorithm':<14} {'Acc Mean':>9} {'Acc Std':>9} {'Frob Mean':>10} {'Frob Std':>10} {'Time Mean':>10}"
     sep = "-" * len(header)
     lines.append(header)
     lines.append(sep)
@@ -187,9 +225,10 @@ def save_summary(results):
     for key in sorted(groups.keys()):
         ds, noise, algo = key
         accs = [r["accuracy"] for r in groups[key]]
+        frobs = [r["frobenius"] for r in groups[key]]
         times = [r["time_sec"] for r in groups[key]]
         lines.append(
-            f"{ds:<14} {noise:>4}% {algo:<14} {np.mean(accs):>9.4f} {np.std(accs):>9.4f} {np.mean(times):>9.1f}s"
+            f"{ds:<14} {noise:>4}% {algo:<14} {np.mean(accs):>9.4f} {np.std(accs):>9.4f} {np.mean(frobs):>10.4f} {np.std(frobs):>10.4f} {np.mean(times):>9.1f}s"
         )
 
     summary = "\n".join(lines)
