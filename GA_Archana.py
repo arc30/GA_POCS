@@ -239,14 +239,12 @@ def convex_init(A, B, D, mu, niter):
             P = P + alpha * (q - P)
     return P
 
-def convex_init1(A, B, D, mu, niter):
+def convex_init1(A, B, D, mu, niter, P0=None):
     #np.set_printoptions(suppress=True)
     n = len(A)
-    P = torch.ones((n,n), dtype = torch.float64)
-    P=P/n
-    P=relaxed_normAPPB_FW_seeds(A,B)
-    
-    P = torch.from_numpy(P).double()
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(A, B)
+    P = torch.from_numpy(P0).double()
     ones = torch.ones(n, dtype = torch.float64)
     mat_ones = torch.ones((n, n), dtype = torch.float64)
     reg = 1.0
@@ -333,7 +331,7 @@ def Fugal(Src,Tar ,iter,simple,mu,EFN=5):
     P = convex_init(A, B, D, mu, iter)
     return P
 
-def Fugal_init(Src,Tar, iter,simple,mu,EFN=5):
+def Fugal_init(Src,Tar, iter,simple,mu,EFN=5,P0=None):
     print("FugalGrad")
     torch.set_num_threads(40)
     dtype = np.float64
@@ -378,7 +376,7 @@ def Fugal_init(Src,Tar, iter,simple,mu,EFN=5):
         mu=2
     else:
         mu=1
-    P=convex_init1(A, B, D, mu, iter)
+    P=convex_init1(A, B, D, mu, iter, P0=P0)
     return P
 
 
@@ -411,7 +409,7 @@ def Alpine(Gq, Gt, mu=1, niter=10, weight=2):
     return P#,ans, list_of_nodes, forbnorm    
 
 
-def QAP_init(Src,Tar):
+def QAP_init(Src,Tar,P0=None):
     print("QAP")
     torch.set_num_threads(40)
     dtype = np.float64
@@ -436,9 +434,9 @@ def QAP_init(Src,Tar):
     A = torch.tensor((Src), dtype = torch.float64)
     B = torch.tensor((Tar), dtype = torch.float64)
 
-
-    P=relaxed_normAPPB_FW_seeds(Src,Tar,max_iter=1000)
-    res_qap = quadratic_assignment(-Tar,Src,method='faq',options={"P0": P.T, "maxiter": 30})
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(Src,Tar,max_iter=1000)
+    res_qap = quadratic_assignment(-Tar,Src,method='faq',options={"P0": P0.T, "maxiter": 30})
     #res_qap = quadratic_assignment(-Tar,Src,method='faq',options={"maxiter": 30})
 
     perm = res_qap.col_ind

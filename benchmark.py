@@ -25,7 +25,7 @@ import torch
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
 
-from GA_Archana import Fugal, Fugal_init, QAP, QAP_init
+from GA_Archana import Fugal, Fugal_init, QAP, QAP_init, relaxed_normAPPB_FW_seeds
 from noise import generate_graphs, edges_to_adj, eval_align, read_real_graph
 
 # ---------------------------------------------------------------------------
@@ -37,18 +37,18 @@ DATASETS = {
     # "highschool": {"n": 327, "path": "datasets/highschool.txt"},
 }
 
-NOISE_LEVELS = [0.0, 0.10, 0.20]
-TRIAL_SEEDS = [42, 123, 7]
+NOISE_LEVELS = [0.05] # [0.0, 0.05, 0.10, 0.15, 0.20]
+TRIAL_SEEDS = [33] # [42, 123, 7]
 
 ALGORITHMS = {
-    "Fugal":      lambda Src, Tar: Fugal(Src, Tar, iter=10, simple=True, mu=1, EFN=5),
-    "Fugal_init": lambda Src, Tar: Fugal_init(Src, Tar, iter=10, simple=True, mu=1, EFN=5),
-    "QAP":        lambda Src, Tar: QAP(Src, Tar),
-    "QAP_init":   lambda Src, Tar: QAP_init(Src, Tar),
+    "Fugal":      lambda Src, Tar, P0=None: Fugal(Src, Tar, iter=10, simple=True, mu=1, EFN=5),
+    "Fugal_init": lambda Src, Tar, P0=None: Fugal_init(Src, Tar, iter=10, simple=True, mu=1, EFN=5, P0=P0),
+    "QAP":        lambda Src, Tar, P0=None: QAP(Src, Tar),
+    "QAP_init":   lambda Src, Tar, P0=None: QAP_init(Src, Tar, P0=P0),
 }
 
 DATA_DIR = "baseline_data"
-PERM_DIR = "baseline_perms"
+FW_SEED_DIR = "baseline_fw_seeds"
 RESULTS_CSV = "baseline_results.csv"
 RESULTS_SUMMARY = "baseline_results_summary.txt"
 
@@ -81,6 +81,7 @@ def generate_and_save():
                     continue
 
                 np.random.seed(seed)
+                # note: generate_graphs mutates its inputs
                 Src_e, Tar_e, GT = generate_graphs(edges.copy(), 0, noise)
                 Src_adj = edges_to_adj(Src_e, n)
                 Tar_adj = edges_to_adj(Tar_e, n)
@@ -110,6 +111,8 @@ def evaluate(P, GT, Src_adj, Tar_adj):
         (eval_align(col_ind, row_ind, GT0), col_ind, row_ind),
         (eval_align(col_ind, row_ind, GT1), col_ind, row_ind),
     ]
+
+    # todo: ask about frobenius norm calculation. Also verify the selfloop part.
     acc, best_r, best_c = max(candidates, key=lambda x: x[0])
 
     # Add self-loops to isolated nodes (same transform all 4 algorithms apply)
@@ -131,8 +134,17 @@ def evaluate(P, GT, Src_adj, Tar_adj):
     return acc, frob_norm
 
 
+def add_self_loops(adj):
+    """Add self-loops to isolated nodes (same transform all 4 algorithms apply)."""
+    adj = adj.copy()
+    for i in range(len(adj)):
+        if np.sum(adj[i, :]) == 0:
+            adj[i, i] = 1
+    return adj
+
+
 def run_experiments():
-    os.makedirs(PERM_DIR, exist_ok=True)
+    os.makedirs(FW_SEED_DIR, exist_ok=True)
     results = []
 
     for ds_name in DATASETS:
@@ -151,34 +163,41 @@ def run_experiments():
                 Tar_adj = data["Tar_adj"]
                 GT = (data["GT0"], data["GT1"])
 
+                # Compute self-loop matrices once for FW seed
+                Src_sl = add_self_loops(Src_adj)
+                Tar_sl = add_self_loops(Tar_adj)
+
+                # Cache / load FW seed (shared by Fugal_init and QAP_init)
+                fw_fname = f"{ds_name}_noise{noise_pct}_trial{trial_idx}_fw.npz"
+                fw_fpath = os.path.join(FW_SEED_DIR, fw_fname)
+
+                if os.path.exists(fw_fpath):
+                    P0 = np.load(fw_fpath)["P0"]
+                    print(f"  [cached] FW seed for {ds_name} "
+                          f"noise={noise_pct}% trial={trial_idx}")
+                else:
+                    print(f"  Computing FW seed for {ds_name} "
+                          f"noise={noise_pct}% trial={trial_idx} ...",
+                          end="", flush=True)
+                    P0 = relaxed_normAPPB_FW_seeds(Src_sl, Tar_sl)
+                    np.savez(fw_fpath, P0=P0)
+                    print(" done")
+
                 for algo_name, algo_fn in ALGORITHMS.items():
-                    perm_fname = f"{ds_name}_noise{noise_pct}_trial{trial_idx}_{algo_name}.npz"
-                    perm_fpath = os.path.join(PERM_DIR, perm_fname)
+                    # Copy arrays — algorithms mutate inputs (add self-loops)
+                    S = Src_adj.copy()
+                    T = Tar_adj.copy()
 
-                    if os.path.exists(perm_fpath):
-                        # Load cached permutation matrix
-                        cached = np.load(perm_fpath)
-                        P = cached["P"]
-                        elapsed = float(cached["time_sec"])
-                        print(f"  [cached] {algo_name} on {ds_name} "
-                              f"noise={noise_pct}% trial={trial_idx} ...",
-                              end="", flush=True)
-                    else:
-                        # Copy arrays — algorithms mutate inputs (add self-loops)
-                        S = Src_adj.copy()
-                        T = Tar_adj.copy()
+                    print(f"  Running {algo_name} on {ds_name} "
+                          f"noise={noise_pct}% trial={trial_idx} ...",
+                          end="", flush=True)
 
-                        print(f"  Running {algo_name} on {ds_name} "
-                              f"noise={noise_pct}% trial={trial_idx} ...",
-                              end="", flush=True)
+                    t0 = time.time()
+                    P = algo_fn(S, T, P0=P0)
+                    elapsed = time.time() - t0
 
-                        t0 = time.time()
-                        P = algo_fn(S, T)
-                        elapsed = time.time() - t0
-
-                        if isinstance(P, torch.Tensor):
-                            P = P.detach().numpy()
-                        np.savez(perm_fpath, P=P, time_sec=elapsed)
+                    if isinstance(P, torch.Tensor):
+                        P = P.detach().numpy()
 
                     acc, frob = evaluate(P, GT, Src_adj, Tar_adj)
                     print(f"  acc={acc:.4f}  frob={frob:.4f}  time={elapsed:.1f}s")
