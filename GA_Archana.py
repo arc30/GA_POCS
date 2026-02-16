@@ -230,9 +230,17 @@ def convex_init(A, B, D, mu, niter):
     mat_ones = torch.ones((n, n), dtype = torch.float64)
     reg = 1.0
     K=mu*D
+
+    avg_degree_A = (A.sum(dim=1)).mean()
+    avg_degree_B = (B.sum(dim=1)).mean()
+    if (min(avg_degree_A, avg_degree_B) < 3):
+        qap_weightage = 2
+    else:
+        qap_weightage = 1
+
     for i in range(niter):
         for it in range(1, 11):
-            G=-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)+ K+ i*(mat_ones - 2*P)
+            G=-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)*qap_weightage + K+ i*(mat_ones - 2*P)
             q= ot.sinkhorn(ones, ones, G, reg,numItermax=1500)
             #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
             alpha = 2.0 / float(2.0 + it)
@@ -249,9 +257,18 @@ def convex_init1(A, B, D, mu, niter, P0=None):
     mat_ones = torch.ones((n, n), dtype = torch.float64)
     reg = 1.0
     K=mu*D
+
+    avg_degree_A = (A.sum(dim=1)).mean()
+    avg_degree_B = (B.sum(dim=1)).mean()
+    if (min(avg_degree_A, avg_degree_B) < 3):
+        qap_weightage = 2
+    else:
+        qap_weightage = 1
+
+
     for i in range(niter):
         for it in range(1, 11):
-            G=(-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T))+ K+ i*(mat_ones - 2*P)
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K+ i*(mat_ones - 2*P)
             #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
             q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500)
             alpha = 2.0 / float(2.0 + it)
