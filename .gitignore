@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.python-version
+
+# Benchmark outputs (regenerable)
+baseline_data/
+baseline_fw_seeds/
+baseline_results.csv
+baseline_results_summary.txt
+results.txt
+
+# Pytest
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+*.egg-info/
