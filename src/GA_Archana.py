@@ -5,7 +5,7 @@ import ot
 import scipy
 import torch
 from sklearn.metrics.pairwise import euclidean_distances
-from sinkhorn import sinkhorn,sinkhorn_epsilon_scaling,sinkhorn_knopp,sinkhorn_stabilized
+# from sinkhorn import sinkhorn,sinkhorn_epsilon_scaling,sinkhorn_knopp,sinkhorn_stabilized
 #you can also use ot.sinhorn
 from numpy import linalg as LA
 from scipy.optimize import linear_sum_assignment

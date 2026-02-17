@@ -7,9 +7,9 @@ __pycache__/
 # Benchmark outputs (regenerable)
 baseline_data/
 baseline_fw_seeds/
-baseline_results.csv
-baseline_results_summary.txt
-results.txt
+results/baseline_results.csv
+results/baseline_results_summary.txt
+results/results.txt
 
 # Pytest
 .pytest_cache/

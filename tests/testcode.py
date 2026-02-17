@@ -6,15 +6,14 @@
 #the reason is that is high complexity.
 
 
-import networkx as nx
-from GA_Archana import *
-from noise import *
+from src.GA_Archana import *
+from src.noise import *
 #netscience 379
 #inf-euroroad 1174
 #highschool 327
 #voles 712
 #multimanga 1004
-with open("results.txt", "w") as f:
+with open("../results/results.txt", "w") as f:
     "hi everybody, we have Fugal, Alpine and QAP"
 #hints-> for sparce datasets we have to increase the QAP value (ex -torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T) *2)                    
 iter=10
@@ -64,5 +63,5 @@ eval_align(col_ind,row_ind,GT[0]),eval_align(col_ind,row_ind,GT[1]))
 print(X5)
 #with open("results.txt", "w") as f:
 #    f.write(f'{X1} {X2} {X3} {X4} {X5}\n')
-with open("results.txt", "w") as f:
+with open("../results/results.txt", "w") as f:
     f.write(f' {X5} \n')

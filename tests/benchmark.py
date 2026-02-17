@@ -23,10 +23,12 @@ import torch
 
 # Ensure relative paths (datasets/) resolve correctly
 script_dir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(script_dir)
+project_root = os.path.dirname(script_dir)
+os.chdir(project_root)
+sys.path.insert(0, project_root)
 
-from GA_Archana import Fugal, Fugal_init, QAP, QAP_init, relaxed_normAPPB_FW_seeds
-from noise import generate_graphs, edges_to_adj, eval_align, read_real_graph
+from src.GA_Archana import Fugal, Fugal_init, QAP, QAP_init, relaxed_normAPPB_FW_seeds
+from src.noise import generate_graphs, edges_to_adj, eval_align, read_real_graph
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -47,10 +49,11 @@ ALGORITHMS = {
     "QAP_init":   lambda Src, Tar, P0=None: QAP_init(Src, Tar, P0=P0),
 }
 
-DATA_DIR = "baseline_data"
-FW_SEED_DIR = "baseline_fw_seeds"
-RESULTS_CSV = "baseline_results.csv"
-RESULTS_SUMMARY = "baseline_results_summary.txt"
+DATA_DIR = "../baseline_data"
+FW_SEED_DIR = "../baseline_fw_seeds"
+RESULTS_DIR = "../results"
+RESULTS_CSV = os.path.join(RESULTS_DIR, "baseline_results.csv")
+RESULTS_SUMMARY = os.path.join(RESULTS_DIR, "baseline_results_summary.txt")
 
 # ---------------------------------------------------------------------------
 # Phase 1: Generate & save graph pairs
@@ -220,6 +223,7 @@ def run_experiments():
 # ---------------------------------------------------------------------------
 
 def save_csv(results):
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     fieldnames = ["dataset", "noise", "trial", "algorithm", "accuracy", "frobenius", "time_sec"]
     with open(RESULTS_CSV, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
