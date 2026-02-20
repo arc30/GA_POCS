@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+results/
+baseline_data/
+baseline_fw_seeds/
+.git/
+fugal.pdf
+.idea/
+.claude/

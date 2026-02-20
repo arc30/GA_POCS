@@ -240,7 +240,7 @@ def convex_init(A, B, D, mu, niter):
 
     for i in range(niter):
         for it in range(1, 11):
-            G=-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)*qap_weightage + K+ i*(mat_ones - 2*P)
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T))*qap_weightage) + K+ i*(mat_ones - 2*P)
             q= ot.sinkhorn(ones, ones, G, reg,numItermax=1500)
             #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
             alpha = 2.0 / float(2.0 + it)
@@ -327,9 +327,8 @@ def Fugal(Src,Tar ,iter,simple,mu,EFN=5):
     A = torch.tensor((Src), dtype = torch.float64)
     B = torch.tensor((Tar), dtype = torch.float64)
     simple=True
-    if (EFN==5):
-        F1 = feature_extraction(Src1,simple)
-        F2 = feature_extraction(Tar1,simple)
+    F1 = feature_extraction(Src1,simple)
+    F2 = feature_extraction(Tar1,simple)
     D = eucledian_dist(F1, F2, n)
     D = torch.tensor(D, dtype = torch.float64)
     #just see Fugal initialization
