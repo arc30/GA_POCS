@@ -37,10 +37,13 @@ from src.noise import generate_graphs, edges_to_adj, eval_align, read_real_graph
 DATASETS = {
     "netscience": {"n": 379, "path": "datasets/netscience.txt"},
     # "highschool": {"n": 327, "path": "datasets/highschool.txt"},
+    # "euroroad": {"n": 1175, "path": "datasets/inf-euroroad.txt"},
+    # "multimanga": {"n": 1004, "path": "datasets/multimanga.txt"},
+    # "voles": {"n": 712, "path": "datasets/voles.txt"},
 }
 
-NOISE_LEVELS = [0.05] # [0.0, 0.05, 0.10, 0.15, 0.20]
-TRIAL_SEEDS = [33] # [42, 123, 7]
+NOISE_LEVELS = [0.0, 0.05, 0.10, 0.15, 0.20]
+TRIAL_SEEDS = [42, 123, 7]
 
 ALGORITHMS = {
     "Fugal":      lambda Src, Tar, P0=None: Fugal(Src, Tar, iter=10, simple=True, mu=1, EFN=5),
@@ -49,8 +52,8 @@ ALGORITHMS = {
     "QAP_init":   lambda Src, Tar, P0=None: QAP_init(Src, Tar, P0=P0),
 }
 
-DATA_DIR = "../baseline_data"
-FW_SEED_DIR = "../baseline_fw_seeds"
+DATA_DIR = "baseline_data"
+FW_SEED_DIR = "baseline_fw_seeds"
 RESULTS_DIR = "../results"
 RESULTS_CSV = os.path.join(RESULTS_DIR, "baseline_results.csv")
 RESULTS_SUMMARY = os.path.join(RESULTS_DIR, "baseline_results_summary.txt")
@@ -71,7 +74,7 @@ def generate_and_save():
         G = read_real_graph(n=ds_info["n"], name_=ds_info["path"])
         A = nx.to_numpy_array(G, dtype=int)
         edges = extract_edges(A)
-        n = ds_info["n"]
+        n = int(edges.max()) + 1
 
         for noise in NOISE_LEVELS:
             noise_pct = int(noise * 100)
@@ -115,23 +118,15 @@ def evaluate(P, GT, Src_adj, Tar_adj):
         (eval_align(col_ind, row_ind, GT1), col_ind, row_ind),
     ]
 
-    # todo: ask about frobenius norm calculation. Also verify the selfloop part.
-    acc, best_r, best_c = max(candidates, key=lambda x: x[0])
+    acc, _, _ = max(candidates, key=lambda x: x[0])
 
-    # Add self-loops to isolated nodes (same transform all 4 algorithms apply)
-    Src_sl = Src_adj.copy()
-    Tar_sl = Tar_adj.copy()
-    for i in range(len(Src_sl)):
-        if np.sum(Src_sl[i, :]) == 0:
-            Src_sl[i, i] = 1
-    for i in range(len(Tar_sl)):
-        if np.sum(Tar_sl[i, :]) == 0:
-            Tar_sl[i, i] = 1
-
-    # Frobenius norm using the best alignment: ||Src - Perm @ Tar @ Perm^T||_F^2
-    n = len(best_r)
+    # Frobenius norm: use raw predicted alignment (row_ind, col_ind), independent of accuracy
+    # ||Src - Perm @ Tar @ Perm^T||_F^2
+    n = len(row_ind)
     Perm = np.zeros((n, n))
-    Perm[best_r, best_c] = 1.0
+    Perm[row_ind, col_ind] = 1.0
+    Src_sl = add_self_loops(Src_adj)
+    Tar_sl = add_self_loops(Tar_adj)
     frob_norm = np.linalg.norm(Src_sl - Perm @ Tar_sl @ Perm.T, 'fro') ** 2
 
     return acc, frob_norm
@@ -170,21 +165,32 @@ def run_experiments():
                 Src_sl = add_self_loops(Src_adj)
                 Tar_sl = add_self_loops(Tar_adj)
 
+                # GT Frobenius: best possible ||Src - P_GT @ Tar @ P_GT^T||_F^2
+                # GT0 is the forward mapping (src node i -> tar node GT0[i]),
+                # consistent with how Tar was constructed: Tar_e = GT0[Src_e]
+                GT0 = GT[0]
+                n_gt = len(GT0)
+                P_GT = np.zeros((n_gt, n_gt))
+                P_GT[np.arange(n_gt), GT0] = 1.0
+                gt_frob = round(float(np.linalg.norm(Src_sl - P_GT @ Tar_sl @ P_GT.T, 'fro') ** 2), 4)
+
                 # Cache / load FW seed (shared by Fugal_init and QAP_init)
                 fw_fname = f"{ds_name}_noise{noise_pct}_trial{trial_idx}_fw.npz"
                 fw_fpath = os.path.join(FW_SEED_DIR, fw_fname)
 
                 if os.path.exists(fw_fpath):
                     P0 = np.load(fw_fpath)["P0"]
+                    fw_time = 0.0
                     print(f"  [cached] FW seed for {ds_name} "
                           f"noise={noise_pct}% trial={trial_idx}")
                 else:
                     print(f"  Computing FW seed for {ds_name} "
                           f"noise={noise_pct}% trial={trial_idx} ...",
                           end="", flush=True)
+                    t_fw = time.time()
                     P0 = relaxed_normAPPB_FW_seeds(Src_sl, Tar_sl)
+                    fw_time = time.time() - t_fw
                     np.savez(fw_fpath, P0=P0)
-                    print(" done")
 
                 for algo_name, algo_fn in ALGORITHMS.items():
                     # Copy arrays — algorithms mutate inputs (add self-loops)
@@ -198,12 +204,14 @@ def run_experiments():
                     t0 = time.time()
                     P = algo_fn(S, T, P0=P0)
                     elapsed = time.time() - t0
+                    if algo_name in ("Fugal_init", "QAP_init"):
+                        elapsed += fw_time
 
                     if isinstance(P, torch.Tensor):
                         P = P.detach().numpy()
 
                     acc, frob = evaluate(P, GT, Src_adj, Tar_adj)
-                    print(f"  acc={acc:.4f}  frob={frob:.4f}  time={elapsed:.1f}s")
+                    print(f"  acc={acc:.4f}  frob={frob:.4f}  gt_frob={gt_frob:.4f}  time={elapsed:.1f}s")
 
                     results.append({
                         "dataset": ds_name,
@@ -212,6 +220,7 @@ def run_experiments():
                         "algorithm": algo_name,
                         "accuracy": round(acc, 6),
                         "frobenius": round(frob, 4),
+                        "gt_frobenius": gt_frob,
                         "time_sec": round(elapsed, 2),
                     })
 
@@ -224,7 +233,7 @@ def run_experiments():
 
 def save_csv(results):
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    fieldnames = ["dataset", "noise", "trial", "algorithm", "accuracy", "frobenius", "time_sec"]
+    fieldnames = ["dataset", "noise", "trial", "algorithm", "accuracy", "frobenius", "gt_frobenius", "time_sec"]
     with open(RESULTS_CSV, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -240,7 +249,7 @@ def save_summary(results):
         groups.setdefault(key, []).append(r)
 
     lines = []
-    header = f"{'Dataset':<14} {'Noise':>5} {'Algorithm':<14} {'Acc Mean':>9} {'Acc Std':>9} {'Frob Mean':>10} {'Frob Std':>10} {'Time Mean':>10}"
+    header = f"{'Dataset':<14} {'Noise':>5} {'Algorithm':<14} {'Acc Mean':>9} {'Acc Std':>9} {'Frob Mean':>10} {'Frob Std':>10} {'GT Frob':>10} {'Time Mean':>10}"
     sep = "-" * len(header)
     lines.append(header)
     lines.append(sep)
@@ -249,9 +258,10 @@ def save_summary(results):
         ds, noise, algo = key
         accs = [r["accuracy"] for r in groups[key]]
         frobs = [r["frobenius"] for r in groups[key]]
+        gt_frobs = [r["gt_frobenius"] for r in groups[key]]
         times = [r["time_sec"] for r in groups[key]]
         lines.append(
-            f"{ds:<14} {noise:>4}% {algo:<14} {np.mean(accs):>9.4f} {np.std(accs):>9.4f} {np.mean(frobs):>10.4f} {np.std(frobs):>10.4f} {np.mean(times):>9.1f}s"
+            f"{ds:<14} {noise:>4}% {algo:<14} {np.mean(accs):>9.4f} {np.std(accs):>9.4f} {np.mean(frobs):>10.4f} {np.std(frobs):>10.4f} {np.mean(gt_frobs):>10.4f} {np.mean(times):>9.1f}s"
         )
 
     summary = "\n".join(lines)
