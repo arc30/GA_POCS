@@ -19,7 +19,7 @@ module load cuda
 
 # Define paths (keeps things tidy)
 VENV_DIR=$HOME/arcn/venvs/benchmark_env
-REPO_DIR=$HOME/arcn/GA_project
+REPO_DIR=$HOME/arcn/GA_POCS
 
 # Create venv ONLY if it doesn't exist
 if [ ! -d "$VENV_DIR" ]; then
@@ -42,7 +42,7 @@ else
 fi
 
 # Run your code
-cd $REPO_DIR
-python tests/benchmark.py
+cd $REPO_DIR/tests
+python benchmark.py
 
 echo "Finished at $(date)"
