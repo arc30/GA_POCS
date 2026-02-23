@@ -2,11 +2,9 @@
 #SBATCH --job-name=benchmark
 #SBATCH --output=benchmark_%j.out
 #SBATCH --error=benchmark_%j.err
-#SBATCH --time=01:00:00
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=8G
-#SBATCH -p gpu
-#SBATCH --gres=gpu:1
+#SBATCH --time=09:00:00
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=16G
 
 
 echo "Job started on $(hostname)"
