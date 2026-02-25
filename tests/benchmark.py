@@ -42,14 +42,14 @@ DATASETS = {
     # "voles": {"n": 712, "path": "datasets/voles.txt"},
 }
 
-NOISE_LEVELS = [0.0, 0.05, 0.10, 0.15, 0.20]
-TRIAL_SEEDS = [42, 123, 7]
+NOISE_LEVELS = [0.05] # [0.0, 0.05, 0.10, 0.15, 0.20]
+TRIAL_SEEDS = [7] # [42, 123, 7]
 
 ALGORITHMS = {
-    "Fugal":      lambda Src, Tar, P0=None: Fugal(Src, Tar, iter=10, simple=True, mu=1, EFN=5),
-    "Fugal_init": lambda Src, Tar, P0=None: Fugal_init(Src, Tar, iter=10, simple=True, mu=1, EFN=5, P0=P0),
-    "QAP":        lambda Src, Tar, P0=None: QAP(Src, Tar),
-    "QAP_init":   lambda Src, Tar, P0=None: QAP_init(Src, Tar, P0=P0),
+    "Fugal":      lambda Src, Tar, P0=None, mu=None: Fugal(Src, Tar, iter=10, simple=True, mu=mu, EFN=5),
+    "Fugal_init": lambda Src, Tar, P0=None, mu=None: Fugal_init(Src, Tar, iter=10, simple=True, mu=mu, EFN=5, P0=P0),
+    "QAP":        lambda Src, Tar, P0=None, mu=None: QAP(Src, Tar),
+    "QAP_init":   lambda Src, Tar, P0=None, mu=None: QAP_init(Src, Tar, P0=P0),
 }
 
 DATA_DIR = "baseline_data"
@@ -57,6 +57,9 @@ FW_SEED_DIR = "baseline_fw_seeds"
 RESULTS_DIR = "../results"
 RESULTS_CSV = os.path.join(RESULTS_DIR, "baseline_results.csv")
 RESULTS_SUMMARY = os.path.join(RESULTS_DIR, "baseline_results_summary.txt")
+abs_path = os.path.abspath(RESULTS_CSV)
+# print full path of RESULTS_DIR
+print(f"RESULTS_DIR: {abs_path}")
 
 # ---------------------------------------------------------------------------
 # Phase 1: Generate & save graph pairs
@@ -191,7 +194,7 @@ def run_experiments():
                     P0 = relaxed_normAPPB_FW_seeds(Src_sl, Tar_sl)
                     fw_time = time.time() - t_fw
                     np.savez(fw_fpath, P0=P0)
-
+                muVals = [1,2,3,4]
                 for algo_name, algo_fn in ALGORITHMS.items():
                     # Copy arrays — algorithms mutate inputs (add self-loops)
                     S = Src_adj.copy()
@@ -201,28 +204,31 @@ def run_experiments():
                           f"noise={noise_pct}% trial={trial_idx} ...",
                           end="", flush=True)
 
-                    t0 = time.time()
-                    P = algo_fn(S, T, P0=P0)
-                    elapsed = time.time() - t0
-                    if algo_name in ("Fugal_init", "QAP_init"):
-                        elapsed += fw_time
+                    for currMu in muVals:
+                        t0 = time.time()
+                        P = algo_fn(S, T, P0=P0, mu=currMu)
+                        elapsed = time.time() - t0
+                        if algo_name in ("Fugal_init", "QAP_init"):
+                            elapsed += fw_time
 
-                    if isinstance(P, torch.Tensor):
-                        P = P.detach().numpy()
+                        if isinstance(P, torch.Tensor):
+                            P = P.detach().numpy()
 
-                    acc, frob = evaluate(P, GT, Src_adj, Tar_adj)
-                    print(f"  acc={acc:.4f}  frob={frob:.4f}  gt_frob={gt_frob:.4f}  time={elapsed:.1f}s")
+                        acc, frob = evaluate(P, GT, Src_adj, Tar_adj)
+                        print(f"  acc={acc:.4f}  frob={frob:.4f}  gt_frob={gt_frob:.4f}  time={elapsed:.1f}s")
 
-                    results.append({
-                        "dataset": ds_name,
-                        "noise": noise_pct,
-                        "trial": trial_idx,
-                        "algorithm": algo_name,
-                        "accuracy": round(acc, 6),
-                        "frobenius": round(frob, 4),
-                        "gt_frobenius": gt_frob,
-                        "time_sec": round(elapsed, 2),
-                    })
+                        results.append({
+
+                            "dataset": ds_name,
+                            "noise": noise_pct,
+                            "trial": trial_idx,
+                            "algorithm": algo_name,
+                            "mu": currMu,
+                            "accuracy": round(acc, 6),
+                            "frobenius": round(frob, 4),
+                            "gt_frobenius": gt_frob,
+                            "time_sec": round(elapsed, 2),
+                        })
 
     return results
 
@@ -233,7 +239,7 @@ def run_experiments():
 
 def save_csv(results):
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    fieldnames = ["dataset", "noise", "trial", "algorithm", "accuracy", "frobenius", "gt_frobenius", "time_sec"]
+    fieldnames = ["dataset", "noise", "trial", "algorithm", "mu", "accuracy", "frobenius", "gt_frobenius", "time_sec"]
     with open(RESULTS_CSV, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()

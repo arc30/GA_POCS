@@ -227,6 +227,8 @@ def adam(A, B, D=None):
             break
 
         lam += 0.5
+        # lambda_convex is seen as 0 for more of the datasets. So, what value of lam to be used?
+        #
         if lam >= lambda_convex:
            break 
     return opt_P.cpu().numpy().T
