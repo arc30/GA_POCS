@@ -37,12 +37,15 @@ df = pd.read_csv(CSV_PATH)
 df = df.dropna(subset=["dataset", "algorithm"])
 
 has_gt = "gt_frobenius" in df.columns and df["gt_frobenius"].notna().any()
-
+# In short: it collapses multiple trial runs into one mean data point
 df_mean = df.groupby(["dataset", "noise", "algorithm"]).mean(numeric_only=True).reset_index()
+df_mean_mu = df.groupby(["dataset", "noise", "algorithm", "mu"], dropna=False).mean(numeric_only=True).reset_index()
 
-datasets = datasets = ["euroroad", "netscience"]
+datasets = datasets = sorted(df["dataset"].unique())
+    # ["euroroad", "netscience"]
     # sorted(df["dataset"].unique())
-algorithms = ["Fugal", "Fugal_init", "QAP_init"]
+algorithms = (sorted(df["algorithm"].unique()))
+    # ["Fugal", "Fugal_init", "QAP_init"]
     # (sorted(df["algorithm"].unique()))
 
 # Consistent color palette
@@ -70,11 +73,21 @@ fig1.suptitle("Frobenius Norm vs. Noise Level", fontsize=14)
 for col, ds in enumerate(datasets):
     ax = axes1[0][col]
     sub = df_mean[df_mean["dataset"] == ds]
+    sub_mu = df_mean_mu[df_mean_mu["dataset"] == ds]
 
     for alg in algorithms:
-        alg_sub = sub[sub["algorithm"] == alg].sort_values("noise")
-        ax.plot(alg_sub["noise"], alg_sub["frobenius"],
-                marker="o", label=alg, color=alg_color(alg))
+        if alg == "Fugal_init":
+            mu_vals = sorted(sub_mu.loc[sub_mu["algorithm"] == alg, "mu"].dropna().unique())
+            cmap = plt.cm.Oranges
+            colors = [cmap(0.4 + 0.5 * i / max(len(mu_vals) - 1, 1)) for i in range(len(mu_vals))]
+            for mu_color, mu_val in zip(colors, mu_vals):
+                alg_sub = sub_mu[(sub_mu["algorithm"] == alg) & (sub_mu["mu"] == mu_val)].sort_values("noise")
+                ax.plot(alg_sub["noise"], alg_sub["frobenius"],
+                        marker="o", label=f"Fugal_init (\u03bc={int(mu_val)})", color=mu_color)
+        else:
+            alg_sub = sub[sub["algorithm"] == alg].sort_values("noise")
+            ax.plot(alg_sub["noise"], alg_sub["frobenius"],
+                    marker="o", label=alg, color=alg_color(alg))
 
     if has_gt:
         gt_sub = sub.groupby("noise")["gt_frobenius"].mean().reset_index().sort_values("noise")

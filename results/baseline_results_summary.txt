@@ -1,0 +1,6 @@
+Dataset        Noise Algorithm       Acc Mean   Acc Std  Frob Mean   Frob Std  Time Mean
+----------------------------------------------------------------------------------------
+netscience        5% Fugal             0.6649    0.0000   112.0000     0.0000       5.1s
+netscience        5% Fugal_init        0.6332    0.0000    80.0000     0.0000       5.0s
+netscience        5% QAP               0.1953    0.0000  1012.0000     0.0000       0.1s
+netscience        5% QAP_init          0.6438    0.0000    88.0000     0.0000       0.0s

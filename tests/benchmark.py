@@ -36,14 +36,14 @@ from src.noise import generate_graphs, edges_to_adj, eval_align, read_real_graph
 
 DATASETS = {
     "netscience": {"n": 379, "path": "datasets/netscience.txt"},
-    # "highschool": {"n": 327, "path": "datasets/highschool.txt"},
-    # "euroroad": {"n": 1175, "path": "datasets/inf-euroroad.txt"},
-    # "multimanga": {"n": 1004, "path": "datasets/multimanga.txt"},
-    # "voles": {"n": 712, "path": "datasets/voles.txt"},
+    "highschool": {"n": 327, "path": "datasets/highschool.txt"},
+    "euroroad": {"n": 1175, "path": "datasets/inf-euroroad.txt"},
+    "multimanga": {"n": 1004, "path": "datasets/multimanga.txt"},
+    "voles": {"n": 712, "path": "datasets/voles.txt"},
 }
 
-NOISE_LEVELS = [0.05] # [0.0, 0.05, 0.10, 0.15, 0.20]
-TRIAL_SEEDS = [7] # [42, 123, 7]
+NOISE_LEVELS = [0.0, 0.05, 0.10, 0.15, 0.20]
+TRIAL_SEEDS = [42, 123, 7]
 
 ALGORITHMS = {
     "Fugal":      lambda Src, Tar, P0=None, mu=None: Fugal(Src, Tar, iter=10, simple=True, mu=mu, EFN=5),
@@ -194,7 +194,7 @@ def run_experiments():
                     P0 = relaxed_normAPPB_FW_seeds(Src_sl, Tar_sl)
                     fw_time = time.time() - t_fw
                     np.savez(fw_fpath, P0=P0)
-                muVals = [1,2,3,4]
+
                 for algo_name, algo_fn in ALGORITHMS.items():
                     # Copy arrays — algorithms mutate inputs (add self-loops)
                     S = Src_adj.copy()
@@ -204,7 +204,14 @@ def run_experiments():
                           f"noise={noise_pct}% trial={trial_idx} ...",
                           end="", flush=True)
 
+                    muVals = [0.05, 0.1, 0.25, 0.5, 1, 1.5, 2, 2.5, 3]
+                    if algo_name != "Fugal_init":
+                        # Only Fugual init needs nu, for others,
+                        # just run once with nu=None
+                        muVals = [None]
+
                     for currMu in muVals:
+
                         t0 = time.time()
                         P = algo_fn(S, T, P0=P0, mu=currMu)
                         elapsed = time.time() - t0
@@ -251,11 +258,11 @@ def save_summary(results):
     # Group by (dataset, noise, algorithm)
     groups = {}
     for r in results:
-        key = (r["dataset"], r["noise"], r["algorithm"])
+        key = (r["dataset"], r["noise"], r["algorithm"], r["mu"])
         groups.setdefault(key, []).append(r)
 
     lines = []
-    header = f"{'Dataset':<14} {'Noise':>5} {'Algorithm':<14} {'Acc Mean':>9} {'Acc Std':>9} {'Frob Mean':>10} {'Frob Std':>10} {'GT Frob':>10} {'Time Mean':>10}"
+    header = f"{'Dataset':<14} {'Noise':>5} {'Algorithm':<14} {'mu':>5}{'Acc Mean':>9} {'Acc Std':>9} {'Frob Mean':>10} {'Frob Std':>10} {'GT Frob':>10} {'Time Mean':>10}"
     sep = "-" * len(header)
     lines.append(header)
     lines.append(sep)
@@ -310,7 +317,7 @@ def main():
         results = run_experiments()
         if results:
             save_csv(results)
-            save_summary(results)
+            # save_summary(results)
         else:
             print("No results collected. Run --generate-only first.")
 

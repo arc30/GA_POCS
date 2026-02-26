@@ -5,11 +5,11 @@ __pycache__/
 .python-version
 
 # Benchmark outputs (regenerable)
-baseline_data/
-baseline_fw_seeds/
-results/baseline_results.csv
-results/baseline_results_summary.txt
-results/results.txt
+# baseline_data/
+# baseline_fw_seeds/
+
+
+
 
 # Pytest
 .pytest_cache/

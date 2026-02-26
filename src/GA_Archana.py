@@ -381,18 +381,19 @@ def Fugal_init(Src,Tar, iter,simple,mu,EFN=5,P0=None):
         F2 = feature_extraction(Tar1,simple)
     D = eucledian_dist(F1, F2, n)
     D = torch.tensor(D, dtype = torch.float64)
-    if (n< 370):
-        mu=0.5
-    elif (n<400):
-        mu=1
-    elif (n<700):
-        mu=0.1
-    elif (n<1165):
-        mu=0.5
-    elif (n<1700):
-        mu=2
-    else:
-        mu=1
+    if mu is None:
+        if (n< 370):
+            mu=0.5
+        elif (n<400):
+            mu=1
+        elif (n<700):
+            mu=0.1
+        elif (n<1165):
+            mu=0.5
+        elif (n<1700):
+            mu=2
+        else:
+            mu=1
     P=convex_init1(A, B, D, mu, iter, P0=P0)
     return P
 
