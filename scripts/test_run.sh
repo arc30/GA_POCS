@@ -2,7 +2,7 @@
 #SBATCH --job-name=benchmark
 #SBATCH --output=benchmark_%j.out
 #SBATCH --error=benchmark_%j.err
-#SBATCH --time=09:00:00
+#SBATCH --time=12:00:00
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=16G
 
@@ -40,7 +40,8 @@ else
 fi
 
 # Run your code
-cd $REPO_DIR/tests
-python benchmark.py
+cd $REPO_DIR
+python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py
+
 
 echo "Finished at $(date)"

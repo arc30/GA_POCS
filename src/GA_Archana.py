@@ -247,7 +247,7 @@ def convex_init(A, B, D, mu, niter):
             P = P + alpha * (q - P)
     return P
 
-def convex_init1(A, B, D, mu, niter, P0=None):
+def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
     #np.set_printoptions(suppress=True)
     n = len(A)
     if P0 is None:
@@ -261,18 +261,20 @@ def convex_init1(A, B, D, mu, niter, P0=None):
     avg_degree_A = (A.sum(dim=1)).mean()
     avg_degree_B = (B.sum(dim=1)).mean()
     if (min(avg_degree_A, avg_degree_B) < 3):
-        qap_weightage = 2
+        qap_weightage = 2 # try 5 /6 here? todo
     else:
         qap_weightage = 1
 
-
-    for i in range(niter):
+    # for i in range(niter):
+    lam = 0
+    while lam < niter:
         for it in range(1, 11):
-            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K+ i*(mat_ones - 2*P)
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K+ lam*(mat_ones - 2*P)
             #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
             q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500)
             alpha = 2.0 / float(2.0 + it)
             P = P + alpha * (q - P)
+        lam += lam_step
     return P
 
 
@@ -305,8 +307,7 @@ def Alpine_pp_new(A,B, K, niter,A1,weight=1):
     return Pi, forbnorm,row_ind,col_ind
 
 
-def Fugal(Src,Tar ,iter,simple,mu,EFN=5):
-    print("Fugal")
+def Fugal(Src,Tar ,iter,simple=True,mu=1,EFN=5):
     torch.set_num_threads(40)
     dtype = np.float64
     for i in range(Src.shape[0]):
@@ -332,24 +333,22 @@ def Fugal(Src,Tar ,iter,simple,mu,EFN=5):
     D = eucledian_dist(F1, F2, n)
     D = torch.tensor(D, dtype = torch.float64)
     #just see Fugal initialization
-    if mu is None:
-        if (n< 370):
-            mu=0.5
-        elif (n<400):
-            mu=1
-        elif (n<700):
-            mu=0.1
-        elif (n<1165):
-            mu=0.5
-        elif (n<1700):
-            mu=2
-        else:
-            mu=1
+    if (n< 370):
+        mu=0.5
+    elif (n<400):
+        mu=1
+    elif (n<700):
+        mu=0.1
+    elif (n<1165):
+        mu=0.5
+    elif (n<1700):
+        mu=2
+    else:
+        mu=1
     P = convex_init(A, B, D, mu, iter)
     return P
 
-def Fugal_init(Src,Tar, iter,simple,mu,EFN=5,P0=None):
-    print("FugalGrad")
+def Fugal_init(Src, Tar, iter, simple=True, mu=None, EFN=5, P0=None, lam_step=1.0):
     torch.set_num_threads(40)
     dtype = np.float64
     for i in range(Src.shape[0]):
@@ -376,9 +375,9 @@ def Fugal_init(Src,Tar, iter,simple,mu,EFN=5,P0=None):
     #
     
     #EFN 5 equals fugal
-    if (EFN==5):
-        F1 = feature_extraction(Src1,simple)
-        F2 = feature_extraction(Tar1,simple)
+    # if (EFN==5):
+    F1 = feature_extraction(Src1,simple)
+    F2 = feature_extraction(Tar1,simple)
     D = eucledian_dist(F1, F2, n)
     D = torch.tensor(D, dtype = torch.float64)
     if mu is None:
@@ -394,7 +393,7 @@ def Fugal_init(Src,Tar, iter,simple,mu,EFN=5,P0=None):
             mu=2
         else:
             mu=1
-    P=convex_init1(A, B, D, mu, iter, P0=P0)
+    P=convex_init1(A, B, D, mu, iter, P0, lam_step)
     return P
 
 
@@ -428,7 +427,6 @@ def Alpine(Gq, Gt, mu=1, niter=10, weight=2):
 
 
 def QAP_init(Src,Tar,P0=None):
-    print("QAP")
     torch.set_num_threads(40)
     dtype = np.float64
     dtype = np.float64
@@ -462,7 +460,6 @@ def QAP_init(Src,Tar,P0=None):
     P_perm[perm, np.arange(len(perm))] = 1
     return P_perm
 def QAP(Src,Tar):
-    print("QAP")
     n = len(Src)
     P = torch.ones((n,n), dtype = torch.float64)
     P=P/n
