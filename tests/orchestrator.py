@@ -272,11 +272,11 @@ def main():
     parser = argparse.ArgumentParser(description="Baseline benchmark harness")
 
     # Interface shall support a list of mu values
-    parser.add_argument("--mu", nargs='+', type=float, default=[1])
+    parser.add_argument("--mu", nargs='+', type=float, default=[0.05, 0.1, 0.3, 0.5, 1, 2])
     # Interface shall support a list of lam_step values
-    parser.add_argument("--lam-step", nargs='+', type=float, default=[1.0])
+    parser.add_argument("--lam-step", nargs='+', type=float, default=[0.2, 0.4, 0.6, 0.8, 1.0])
     # Interface should take list of algos
-    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init', 'qap_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
+    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
 
     args = parser.parse_args()
 
