@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 import scipy
 import torch
+from pyparsing import results
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -193,13 +194,15 @@ def evaluate(P, GT0, src_adj, tar_adj):
 
     return acc, frob_norm
 
-def run_experiments(muVals, lamSteps, algos, datasets, dry_run):
+def run_experiments(muVals, lamSteps, algos, datasets, dry_run, results_cache):
     _print("\n" + "=" * 60)
     _print(f"Phase 2: Running experiment")
     _print("=" * 60)
     results = []
 
     _print(f"muVals: {muVals}, lamSteps: {lamSteps}, algos: {algos}, datasets: {datasets}, dry_run: {dry_run}")
+
+    prev_results = load_results(results_cache)
 
     for ds_name in DATASETS:
         if ds_name not in datasets:
@@ -221,39 +224,48 @@ def run_experiments(muVals, lamSteps, algos, datasets, dry_run):
 
                     for mu, lam_step in params:
                         _print(f"  Running {ds_name} noise={noise}% trial={trial_idx} for {algo} with mu={mu} lam_step={lam_step}")
-                        if dry_run:
-                            _print(f"  Dry run: skipping evaluation")
-                            continue
-                        if algo == "fugal_init":
-                            p0 = get_saved_perm_matrix(ds_name, noise, trial_idx)
-                            permMatrix = Fugal_init(src_adj, tar_adj, iter=10, mu=mu, lam_step=lam_step, P0=p0)
 
-                        elif algo == "qap_init":
-                            # qap_init algo
-                            p0 = get_saved_perm_matrix(ds_name, noise, trial_idx)
-                            permMatrix = QAP_init(src_adj, tar_adj, p0)
+                        cache_key = (ds_name, str(int(noise * 100)), str(trial_idx), algo, str(mu), str(lam_step))
+                        if cache_key in prev_results:
+                            _print("Using cached results ...")
+                            res = prev_results[cache_key]
+                        else:
+                            _print("No cached results found for key: " + str(cache_key))
 
-                        elif algo == "fugal":
-                            # fugal algo
-                            permMatrix = Fugal(src_adj, tar_adj, iter=10)
+                            if dry_run:
+                                _print(f"  Dry run: skipping evaluation")
+                                continue
 
-                        elif algo == "qap":
-                            permMatrix = QAP(src_adj, tar_adj)
+                            if algo == "fugal_init":
+                                p0 = get_saved_perm_matrix(ds_name, noise, trial_idx)
+                                permMatrix = Fugal_init(src_adj, tar_adj, iter=10, mu=mu, lam_step=lam_step, P0=p0)
 
-                        acc, frob = evaluate(permMatrix, GT0, src_adj, tar_adj)
-                        gt_frob = gtFrobNorm(GT0, src_adj, tar_adj)
+                            elif algo == "qap_init":
+                                # qap_init algo
+                                p0 = get_saved_perm_matrix(ds_name, noise, trial_idx)
+                                permMatrix = QAP_init(src_adj, tar_adj, p0)
 
-                        res = {
-                            "dataset": ds_name,
-                            "noise": int(noise * 100),
-                            "trial": trial_idx,
-                            "algorithm": algo,
-                            "mu": mu,
-                            "lam_step": lam_step,
-                            "accuracy": round(acc, 6),
-                            "frobenius": round(frob, 4),
-                            "gt_frobenius": gt_frob,
-                        }
+                            elif algo == "fugal":
+                                # fugal algo
+                                permMatrix = Fugal(src_adj, tar_adj, iter=10)
+
+                            elif algo == "qap":
+                                permMatrix = QAP(src_adj, tar_adj)
+
+                            acc, frob = evaluate(permMatrix, GT0, src_adj, tar_adj)
+                            gt_frob = gtFrobNorm(GT0, src_adj, tar_adj)
+
+                            res = {
+                                "dataset": ds_name,
+                                "noise": int(noise * 100),
+                                "trial": trial_idx,
+                                "algorithm": algo,
+                                "mu": mu,
+                                "lam_step": lam_step,
+                                "accuracy": round(acc, 6),
+                                "frobenius": round(frob, 4),
+                                "gt_frobenius": gt_frob,
+                            }
 
                         results.append(res)
                         _write_csv(res)
@@ -263,6 +275,20 @@ def run_experiments(muVals, lamSteps, algos, datasets, dry_run):
     return results
 
 
+def load_results(results_cache):
+    if results_cache is None:
+        _print("No results cache provided, skipping loading.")
+        return {}
+
+    _print(f"Loading old run results from {results_cache}")
+    results = {}
+    with open(results_cache, "r") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            key = (row["dataset"], row["noise"], row["trial"], row["algorithm"], row["mu"], row["lam_step"])
+            results[key] = row
+
+    return results
 
 
 
@@ -287,19 +313,23 @@ def main():
     parser.add_argument("--ds", nargs='*',  type=str, default=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
     # Dry run
     parser.add_argument("--dry-run", action='store_true')
+    # Results cache
+    parser.add_argument("--results-cache", type=str)
 
     args = parser.parse_args()
 
-    # summary should contain the args passed to the script in the first row
+    _print(f"Args: {args}")
 
     generate_and_save_graphs()
 
-    results = run_experiments(args.mu, args.lam_step, args.algos, args.ds, args.dry_run)
+    results = run_experiments(args.mu, args.lam_step, args.algos, args.ds, args.dry_run, args.results_cache)
 
     if results:
         save_summary(results)
     else:
-        print("No results collected.")
+        _print("No results collected.")
+
+    _print("Done!")
 
 
 if __name__ == "__main__":
