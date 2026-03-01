@@ -2,15 +2,13 @@ import argparse
 import csv
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, time
 from typing import Dict, Any
 
 import networkx as nx
 import numpy as np
 import scipy
 import torch
-
-dry_run = False
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -27,7 +25,6 @@ from src.noise import read_real_graph, generate_graphs, edges_to_adj, eval_align
 
 print(f"Current working directory: {project_root}")
 
-
 DATASETS = {
     "netscience": {"n": 379, "path": "datasets/netscience.txt"},
     "highschool": {"n": 327, "path": "datasets/highschool.txt"},
@@ -42,7 +39,7 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 DATA_DIR = "baseline_data"
 P0_DIR = "baseline_fw_seeds"
 
-ts = datetime.now().strftime("%m%d_%H%M")
+ts = datetime.now().strftime("%m%d_%H%M%S_%f")[:-3]
 results_csv = os.path.join(RESULTS_DIR, f"exp_{ts}.csv")
 summary_txt = os.path.join(RESULTS_DIR, f"summary_{ts}.txt")
 
@@ -196,13 +193,21 @@ def evaluate(P, GT0, src_adj, tar_adj):
 
     return acc, frob_norm
 
-def run_experiments(muVals, lamSteps, algos):
+def run_experiments(muVals, lamSteps, algos, datasets, dry_run):
     _print("\n" + "=" * 60)
     _print(f"Phase 2: Running experiment")
     _print("=" * 60)
     results = []
 
-    for ds_name in DATASETS:    #5
+    _print(f"muVals: {muVals}, lamSteps: {lamSteps}, algos: {algos}, datasets: {datasets}, dry_run: {dry_run}")
+
+    for ds_name in DATASETS:
+        if ds_name not in datasets:
+            _print(f"  Skipping {ds_name} as it is not in the list of datasets")
+            continue
+
+        _print(f"Running for dataset {ds_name} ...")
+
         for noise in NOISE_LEVELS:  #5
             for trial_idx in range(len(TRIAL_SEEDS)): # 3
                 src_adj, tar_adj, GT0, GT1 = get_saved_graphs(ds_name, noise, trial_idx)
@@ -214,10 +219,11 @@ def run_experiments(muVals, lamSteps, algos):
                     if algo == "fugal_init":
                         params = [(mu, ls) for mu in muVals for ls in lamSteps]
 
-                    if dry_run:
-                        continue
-
                     for mu, lam_step in params:
+                        _print(f"  Running {ds_name} noise={noise}% trial={trial_idx} for {algo} with mu={mu} lam_step={lam_step}")
+                        if dry_run:
+                            _print(f"  Dry run: skipping evaluation")
+                            continue
                         if algo == "fugal_init":
                             p0 = get_saved_perm_matrix(ds_name, noise, trial_idx)
                             permMatrix = Fugal_init(src_adj, tar_adj, iter=10, mu=mu, lam_step=lam_step, P0=p0)
@@ -277,6 +283,10 @@ def main():
     parser.add_argument("--lam-step", nargs='+', type=float, default=[0.2, 0.4, 0.6, 0.8, 1.0])
     # Interface should take list of algos
     parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
+    # List of datasets
+    parser.add_argument("--ds", nargs='*',  type=str, default=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
+    # Dry run
+    parser.add_argument("--dry-run", action='store_true')
 
     args = parser.parse_args()
 
@@ -284,7 +294,7 @@ def main():
 
     generate_and_save_graphs()
 
-    results = run_experiments(args.mu, args.lam_step, args.algos)
+    results = run_experiments(args.mu, args.lam_step, args.algos, args.ds, args.dry_run)
 
     if results:
         save_summary(results)
