@@ -2,14 +2,13 @@ import argparse
 import csv
 import os
 import sys
-from datetime import datetime, time
+from datetime import datetime
 from typing import Dict, Any
 
 import networkx as nx
 import numpy as np
 import scipy
 import torch
-from pyparsing import results
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -44,7 +43,13 @@ ts = datetime.now().strftime("%m%d_%H%M%S_%f")[:-3]
 results_csv = os.path.join(RESULTS_DIR, f"exp_{ts}.csv")
 summary_txt = os.path.join(RESULTS_DIR, f"summary_{ts}.txt")
 
-NOISE_LEVELS = [0.05, 0.10, 0.15, 0.20]
+NOISE_LEVELS = [
+                0.0,
+                0.05,
+                0.10,
+                0.15,
+                0.20
+]
 TRIAL_SEEDS = [42, 123, 7]
 
 def _print(str):
@@ -53,6 +58,8 @@ def _print(str):
     print(logline)
     with open(summary_txt, "a") as f:
         f.write(logline + "\n")
+
+_print("Noise: " + str(NOISE_LEVELS))
 
 def _write_csv(results_batch: Dict[str, Any]):
     fieldnames = ["dataset", "noise", "trial", "algorithm",
@@ -204,7 +211,7 @@ def run_experiments(muVals, lamSteps, algos, datasets, dry_run, results_cache):
 
     prev_results = load_results(results_cache)
 
-    for ds_name in DATASETS:
+    for ds_name in DATASETS:    #5
         if ds_name not in datasets:
             _print(f"  Skipping {ds_name} as it is not in the list of datasets")
             continue
@@ -215,7 +222,7 @@ def run_experiments(muVals, lamSteps, algos, datasets, dry_run, results_cache):
             for trial_idx in range(len(TRIAL_SEEDS)): # 3
                 src_adj, tar_adj, GT0, GT1 = get_saved_graphs(ds_name, noise, trial_idx)
 
-                for algo in algos:  # 4 + 5*5
+                for algo in algos:  # 1 + 5*6
 
                     # multiple parameters only for fugal_init
                     params = [(None, None)]
@@ -308,7 +315,7 @@ def main():
     # Interface shall support a list of lam_step values
     parser.add_argument("--lam-step", nargs='+', type=float, default=[0.2, 0.4, 0.6, 0.8, 1.0])
     # Interface should take list of algos
-    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
+    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init', 'qap_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
     # List of datasets
     parser.add_argument("--ds", nargs='*',  type=str, default=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
     # Dry run
