@@ -44,7 +44,7 @@ results_csv = os.path.join(RESULTS_DIR, f"exp_{ts}.csv")
 summary_txt = os.path.join(RESULTS_DIR, f"summary_{ts}.txt")
 
 NOISE_LEVELS = [
-                0.0,
+                # 0.0,
                 0.05,
                 0.10,
                 0.15,
@@ -315,7 +315,7 @@ def main():
     # Interface shall support a list of lam_step values
     parser.add_argument("--lam-step", nargs='+', type=float, default=[0.2, 0.4, 0.6, 0.8, 1.0])
     # Interface should take list of algos
-    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init', 'qap_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
+    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
     # List of datasets
     parser.add_argument("--ds", nargs='*',  type=str, default=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
     # Dry run

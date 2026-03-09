@@ -261,7 +261,7 @@ def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
     avg_degree_A = (A.sum(dim=1)).mean()
     avg_degree_B = (B.sum(dim=1)).mean()
     if (min(avg_degree_A, avg_degree_B) < 3):
-        qap_weightage = 2 # try 5 /6 here? todo
+        qap_weightage = 5 # try 5 /6 here? todo
     else:
         qap_weightage = 1
 
@@ -269,12 +269,18 @@ def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
     lam = 0
     while lam < niter:
         for it in range(1, 11):
-            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K+ lam*(mat_ones - 2*P)
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K + lam*(mat_ones - 2*P)
             #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
             q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500)
             alpha = 2.0 / float(2.0 + it)
             P = P + alpha * (q - P)
-        lam += lam_step
+
+        if lam < 0.8 * niter: # until first 80%, take lam_step size steps -> later take smaller steps
+            lam += lam_step
+        elif lam < 0.9 * niter:
+            lam += lam_step/2
+        else:
+            lam += lam_step/4
     return P
 
 

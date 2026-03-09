@@ -41,7 +41,7 @@ fi
 
 # Run your code
 cd $REPO_DIR
-python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py  --results-cache /home/gkt175/arcn/GA_POCS/results/res_cache_1_mar.csv --ds euroroad
+python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py --mu 0.5 --lam-step 0.2 --ds netscience 
 
 
 echo "Finished at $(date)"
