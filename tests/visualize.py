@@ -4,7 +4,8 @@ import os
 
 import seaborn as sns
 
-df = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/res_cache_8_mar.csv" )
+df_mu_lamstep_all = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/res_cache_8_mar.csv" )
+df = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/res_gradual_lamstep.csv")
 df = df.drop_duplicates()  # handle duplicate rows
 
 

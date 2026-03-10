@@ -247,7 +247,7 @@ def convex_init(A, B, D, mu, niter):
             P = P + alpha * (q - P)
     return P
 
-def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
+def convex_init_exp_2(A, B, D, mu, niter, P0=None, lam_step=1.0):
     #np.set_printoptions(suppress=True)
     n = len(A)
     if P0 is None:
@@ -282,6 +282,34 @@ def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
         else:
             lam += lam_step/4
     return P
+
+def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
+    #np.set_printoptions(suppress=True)
+    n = len(A)
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(A, B)
+    P = torch.from_numpy(P0).double()
+    ones = torch.ones(n, dtype = torch.float64)
+    mat_ones = torch.ones((n, n), dtype = torch.float64)
+    reg = 1.0
+    K=mu*D
+
+    avg_degree_A = (A.sum(dim=1)).mean()
+    avg_degree_B = (B.sum(dim=1)).mean()
+    if (min(avg_degree_A, avg_degree_B) < 3):
+        qap_weightage = 5 # try 5 /6 here? todo
+    else:
+        qap_weightage = 1
+
+    for i in range(niter):
+        for it in range(1, 11):
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K + i*(mat_ones - 2*P)
+            #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
+            q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500)
+            alpha = 2.0 / float(2.0 + it)
+            P = P + alpha * (q - P)
+    return P
+
 
 
 def Alpine_pp_new(A,B, K, niter,A1,weight=1):
@@ -351,7 +379,9 @@ def Fugal(Src,Tar ,iter,simple=True,mu=1,EFN=5):
         mu=2
     else:
         mu=1
-    P = convex_init(A, B, D, mu, iter)
+    # P = convex_init(A, B, D, mu, iter)
+    P = convex_init_exp_2(A, B, D, mu, iter)
+
     return P
 
 def Fugal_init(Src, Tar, iter, simple=True, mu=None, EFN=5, P0=None, lam_step=1.0):
