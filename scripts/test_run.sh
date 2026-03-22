@@ -41,7 +41,9 @@ fi
 
 # Run your code
 cd $REPO_DIR
-python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py --mu 0.5 --lam-step 0.2 --ds netscience 
+python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py --mu 0.2 1 --lam-step 0.2 1 --ds highschool
+
+
 
 
 echo "Finished at $(date)"

@@ -1,0 +1,38 @@
+
+
+Main idea:
+
+Find ways of improving the performance of the graph alignment algorithm.
+Find which combinations of choices work when.
+
+---
+
+Fugal vs FAQ.
+(Note: faq is interchanged with qap in the csvs. faq_init is same as qap_init)
+
+(FUGAL is the algo my professor and team published in 2024). FAQ was published in 2015 and it was the state of the art.
+Fugal outperforms FAQ in all 5 datasets, when both FAQ and FUGAL use uniform initialization.
+
+(Look at baseline_results.csv in csvs folder, fugal vs qap and extract the metrics. We want to know the accuracy and the frobenius gap (the difference between the calculated norm and the ground truth norm))
+
+
+However, FAQ is more robust to warm initialization. When the best possible initialization is used, FAQ's quality significantly improves, at the cost of a exponentially longer runtime, deeming it unpractical.
+
+We used the same initialization for both algorithms and noticed that the improvement FUGAL got from the initializations was negligible.
+(Look at baseline_results.csv in csvs folder, fugal_init vs qap_init and extract the metrics.We want to know the accuracy and the frobenius gap (the difference between the calculated norm and the ground truth norm)).
+
+We continued the analysis with the best initialization and finetuned FUGAL's objective parameters in fugal_init.
+3 of the 5 datasets showed better alignment than FAQ init.
+ (see res_cache_8_mar.csv, also separately analyze res_gradual_lamstep.csv)
+---
+
+Case EuroRoad dataset:
+FUGAL init could not match FAQ init's alignment for euroroad. Parameter finetuning did not improve the alignment either. Then we investigated the extra terms in the objective function compared to FAQ, and on removing them, we got worse results. This showed that the learning rate used was not the best. We used the learning schedule from FAQ and got better results.
+
+(See newalpha_FI_fewdatasets.csv)
+
+------
+
+(Well, this is the rough flow I have. It's not that strong, and I now intend to run a final run on fugal (without initilization, but with new alpha) so that we can compare the results.)
+
+(Help me write a solid report in the outline mentioned in the fugal_hyperparameter_report.tex)

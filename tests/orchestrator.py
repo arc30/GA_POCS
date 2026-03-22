@@ -44,7 +44,7 @@ results_csv = os.path.join(RESULTS_DIR, f"exp_{ts}.csv")
 summary_txt = os.path.join(RESULTS_DIR, f"summary_{ts}.txt")
 
 NOISE_LEVELS = [
-                # 0.0,
+                0.0,
                 0.05,
                 0.10,
                 0.15,
@@ -60,6 +60,9 @@ def _print(str):
         f.write(logline + "\n")
 
 _print("Noise: " + str(NOISE_LEVELS))
+
+_print("Changed alpha schedule, using sinkhorn but with diff reg")
+
 
 def _write_csv(results_batch: Dict[str, Any]):
     fieldnames = ["dataset", "noise", "trial", "algorithm",
@@ -311,13 +314,13 @@ def main():
     parser = argparse.ArgumentParser(description="Baseline benchmark harness")
 
     # Interface shall support a list of mu values
-    parser.add_argument("--mu", nargs='+', type=float, default=[0.05, 0.1, 0.3, 0.5, 1, 2])
+    parser.add_argument("--mu", nargs='+', type=float, default=[0])
     # Interface shall support a list of lam_step values
-    parser.add_argument("--lam-step", nargs='+', type=float, default=[0.2, 0.4, 0.6, 0.8, 1.0])
+    parser.add_argument("--lam-step", nargs='+', type=float, default=[1])
     # Interface should take list of algos
     parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
     # List of datasets
-    parser.add_argument("--ds", nargs='*',  type=str, default=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
+    parser.add_argument("--ds", nargs='*',  type=str, default=['netscience'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
     # Dry run
     parser.add_argument("--dry-run", action='store_true')
     # Results cache

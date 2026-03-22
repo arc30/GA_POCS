@@ -8,3 +8,7 @@ fugal.pdf
 .idea/
 .claude/
 .DS_Store
+GA_POCS/csvs/
+GA_POCS/.DS_Store
+report/
+csvs/

@@ -4,8 +4,15 @@ import os
 
 import seaborn as sns
 
-df_mu_lamstep_all = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/res_cache_8_mar.csv" )
-df = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/res_gradual_lamstep.csv")
+df_mu_lamstep_all = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/csvs/res_cache_8_mar.csv" )
+df_gradual_lam_step = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/csvs/res_gradual_lamstep.csv")
+
+df_lam0_30iters_euro = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/csvs/euroroad_lam0_30iters.csv")
+df_lam0_100 = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/csvs/euroroad_lam0_100iters.csv")
+
+df = pd.read_csv("/Users/archana/Desktop/repos/gaProj/GA_POCS/csvs/newalpha.csv")
+
+
 df = df.drop_duplicates()  # handle duplicate rows
 
 
@@ -82,6 +89,7 @@ def plot_heatmap_mu_lam():
 
     noise_levels = sorted(fugal_heatmap_per_noise["noise"].unique())
 
+    datasets = sorted(fugal_agg["dataset"].unique())
     for ds in datasets:
         fig, axes = plt.subplots(1, len(noise_levels),
                                  figsize=(4 * len(noise_levels), 5),
@@ -122,11 +130,11 @@ def plot_heatmap_mu_lam():
             ax.set_ylabel("mu" if col == 0 else "")
 
         fig.tight_layout()
-        fig.savefig(f"results/optionB_heatmap_{ds}.png", dpi=150)
+        fig.savefig(f"results/optionB_heatmap_{ds}_lam0_qap1.png", dpi=150)
         plt.show()
 
 
 # Call Plotting fns
 
-plot_frob_gap()
+# plot_frob_gap()
 plot_heatmap_mu_lam()

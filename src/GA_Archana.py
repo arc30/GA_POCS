@@ -283,6 +283,185 @@ def convex_init_exp_2(A, B, D, mu, niter, P0=None, lam_step=1.0):
             lam += lam_step/4
     return P
 
+
+# Targeted at getting better results for euroroad
+"""
+1. set lambda = 0. try euroroad with mu 0,1,2,3 , tot runs 100
+2. lam 0, mu 0, change n_iter to 3. so total runs become 30
+"""
+def convex_init_exp_3(A, B, D, mu, niter, P0=None, lam_step=1.0):
+    #np.set_printoptions(suppress=True)
+    n = len(A)
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(A, B)
+    P = torch.from_numpy(P0).double()
+    ones = torch.ones(n, dtype = torch.float64)
+    mat_ones = torch.ones((n, n), dtype = torch.float64)
+    reg = 1.0
+
+    K=mu*D
+
+    qap_weightage = 1
+
+    lam = 0
+    for i in range(niter):
+        for it in range(1, 11):
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K + lam*(mat_ones - 2*P)
+            #q = sinkhorn(ones, ones, G, reg,method='sinkhorn', maxIter = 1500, stopThr = 1e-5)
+            q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500)
+            alpha = 2.0 / float(2.0 + it)
+            P = P + alpha * (q - P)
+
+    return P
+
+
+"""
+Fugal with FAQ's better alpha calculation.
+"""
+def convex_init_complex_alpha(A, B, D, mu, niter, P0=None, lam_step=1.0):
+    n = len(A)
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(A, B)
+    P = torch.from_numpy(P0).double()
+    ones = torch.ones(n, dtype = torch.float64)
+    mat_ones = torch.ones((n, n), dtype = torch.float64)
+    reg = 1.0
+    K=mu*D
+
+
+    avg_degree_A = (A.sum(dim=1)).mean()
+    avg_degree_B = (B.sum(dim=1)).mean()
+    if (min(avg_degree_A, avg_degree_B) < 3):
+        qap_weightage = 8 # hardcode for euroroad for now
+    else:
+        qap_weightage = 1
+
+
+
+    lam = 0
+    while lam < niter:
+        for it in range(1, 11):
+            G=((-torch.mm(torch.mm(A.T, P), B)-torch.mm(torch.mm(A, P), B.T)) * qap_weightage) + K + lam*(mat_ones - 2*P)
+            reg = G.abs().max().item() / 100.0
+
+            q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500, stopThr=5e-2)
+
+            R = P - q
+            AR = torch.mm(A.T, R)
+            BR = torch.mm(B, R.T)
+            # As q from sinkhorn has no cols, replace B.T[cols] with q @ B.T and BR[cols] with q @ BR
+            b_a = (AR * torch.mm(q, B.T)).sum().item()
+            b_b = (A * torch.mm(q, BR)).sum().item()
+
+            a = qap_weightage * (AR.T * BR).sum().item()  + lam * (R * R).sum().item()
+
+            b = qap_weightage * (b_a + b_b) - (K * R).sum().item() - lam * R.sum().item()  + 2 * lam * (q * R).sum().item()
+
+            if a < 0 and 0 <= -b / (2 * a) <= 1:
+                alpha = -b / (2 * a)
+            else:
+                alpha = float(np.argmin([0, -(b + a)]))
+
+            P = alpha * P + (1 - alpha) * q
+
+
+        if lam < 0.8 * niter: # until first 80%, take lam_step size steps -> later take smaller steps
+            lam += lam_step
+        elif lam < 0.9 * niter:
+            lam += lam_step/2
+        else:
+            lam += lam_step/4
+    return P
+
+
+"""
+1. Euroroad, with mu 0 and lam 0 did not give good results when compared with qap init. We need to investigate why! 
+2. Possible next steps: 
+    change alpha and use the one used in qap init
+    replace sinkhorn with hungarian.
+    
+    Let's changa alpha schedule!
+"""
+def convex_init_sinkhorn_new_alpha(A, B, D, mu, niter, P0=None, lam_step=1.0):
+
+    n = len(A)
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(A, B)
+    P = torch.from_numpy(P0).double()
+    ones = torch.ones(n, dtype = torch.float64)
+    mat_ones = torch.ones((n, n), dtype = torch.float64)
+    reg = 1.0
+
+
+    for i in range(niter):
+        for it in range(1, 11):
+            G=-torch.mm(torch.mm(A.T, P), B) - torch.mm(torch.mm(A, P), B.T)
+
+            reg = G.abs().max().item() / 100.0
+
+            q=ot.sinkhorn(ones, ones, G, reg,method='sinkhorn',numItermax=1500)
+
+            R = P - q
+            AR = torch.mm(A.T, R)
+            BR = torch.mm(B, R.T)
+            # As q from sinkhorn has no cols, replace B.T[cols] with q @ B.T and BR[cols] with q @ BR
+            b_a = (AR * torch.mm(q, B.T)).sum().item()
+            b_b = (A * torch.mm(q, BR)).sum().item()
+            a = (AR.T * BR).sum().item()
+            b = b_a + b_b
+
+            # Since FUGAL is maximising → obj_func_scalar = -1
+            if a < 0 and 0 <= -b / (2 * a) <= 1:
+                alpha = -b / (2 * a)
+            else:
+                alpha = float(np.argmin([0, -(b + a)]))
+
+            P = alpha * P + (1 - alpha) * q
+    return P
+
+
+# with mu 0 and lam 0. Replace sinkhorn with hungarian and use alpha schedule. So we expect same results as qap init.!
+# Established that we are getting baseline results of qap_init for euroroad.
+def convex_init_hungarian(A, B, D, mu, niter, P0=None, lam_step=1.0):
+    n = len(A)
+    if P0 is None:
+        P0 = relaxed_normAPPB_FW_seeds(A, B)
+    P = torch.from_numpy(P0).double()
+
+
+    tol = 0.03
+
+
+    for i in range(niter):
+        for it in range(1, 11):
+            grad_fp = torch.mm(torch.mm(A.T, P), B) + torch.mm(torch.mm(A, P), B.T)
+
+            _, cols = linear_sum_assignment(grad_fp.numpy(),
+                                            maximize=True)
+            Q = torch.eye(n, dtype=torch.float64)[cols]
+
+            R = P - Q
+            AR = torch.mm(A.T, R)
+            BR = torch.mm(B, R.T)
+            b_a = (AR * B.T[cols]).sum().item()
+            b_b = (A * BR[cols]).sum().item()
+            a = (AR.T * BR).sum().item()
+            b = b_a + b_b
+
+            if a < 0 and 0 <= -b / (2 * a) <= 1:
+                alpha = -b / (2 * a)
+            else:
+                alpha = float(np.argmin([0, -(b + a)]))
+
+            P_new = alpha * P + (1 - alpha) * Q
+
+            if torch.linalg.norm(P - P_new).item() / np.sqrt(n) < tol:
+                return P_new
+
+            P = P_new
+
+    return P
+
 def convex_init1(A, B, D, mu, niter, P0=None, lam_step=1.0):
     #np.set_printoptions(suppress=True)
     n = len(A)
@@ -407,15 +586,12 @@ def Fugal_init(Src, Tar, iter, simple=True, mu=None, EFN=5, P0=None, lam_step=1.
     A = torch.tensor((Src), dtype = torch.float64)
     B = torch.tensor((Tar), dtype = torch.float64)
     simple=True
-    #
-    #
-    
-    #EFN 5 equals fugal
-    # if (EFN==5):
+
     F1 = feature_extraction(Src1,simple)
     F2 = feature_extraction(Tar1,simple)
     D = eucledian_dist(F1, F2, n)
     D = torch.tensor(D, dtype = torch.float64)
+
     if mu is None:
         if (n< 370):
             mu=0.5
@@ -429,7 +605,8 @@ def Fugal_init(Src, Tar, iter, simple=True, mu=None, EFN=5, P0=None, lam_step=1.
             mu=2
         else:
             mu=1
-    P=convex_init1(A, B, D, mu, iter, P0, lam_step)
+    #   change back to convex_init1 after exps are complete
+    P=convex_init_complex_alpha(A, B, D, mu, iter, P0, lam_step)
     return P
 
 
