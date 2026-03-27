@@ -41,7 +41,8 @@ fi
 
 # Run your code
 cd $REPO_DIR
-python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py --mu 0.2 1 --lam-step 0.2 1 --ds highschool
+python -W ignore::RuntimeWarning -W ignore::UserWarning tests/orchestrator.py --mu 0.3 0.5 --lam-step 0.6 0.2 0.8 --ds voles --algos fugal
+
 
 
 

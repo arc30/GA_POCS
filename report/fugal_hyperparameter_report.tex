@@ -26,7 +26,7 @@
 
 \title{%
   \textbf{[WORK IN PROGRESS] \\
-  FUGAL++: Hyperparameter Tuning Analysis of FUGAL\\}
+  An Investigation of Optimal Transport based Graph Alignment Algorithms\\}
 }
 
 \author{Archana Narayanan}
@@ -38,17 +38,12 @@
 
 
 \begin{abstract}
- Graph alignment is a critical problem with applications in computer vision, neuroscience, biology and more. As it is
-  NP-hard, several classes of approximate algorithms exist to solve this - mediated, unmediated, and unrestricted. This project examines one such
-  algorithm, FUGAL, an unrestricted method, and investigates the scope for further optimization through four key algorithmic choices:
-  initialization strategy, learning rate schedule, hard vs. soft projection of the permutation matrix, and the role of additional
-  objective terms.
+Graph alignment has broad applications across scientific domains, yet current state-of-the-art methods remain far from ground-truth solutions.
+We investigate this gap by comparing two leading graph matching approximation algorithms: FUGAL, an optimal-transport–based method, and the widely used FAQ.
+We evaluate the impact of four algorithmic factors: initialization, learning-rate scheduling, permutation matrix projection, and additional terms in the objective function.
+Results indicate that performance depends on both dataset characteristics and parameter settings, rather than a single optimal configuration. Warm-start initialization greatly improves FAQ but introduces impractical runtime costs, whereas FUGAL matches this performance without costly initialization in most cases.
+Our study demonstrates that significant accuracy gains can be achieved through principled algorithmic tuning alone, highlighting unexplored opportunities to approach ground-truth alignment without added computational complexity.
 
-  FUGAL has been shown to outperform existing graph alignment algorithms, yet a significant gap to the ground truth alignment remains. We study five real-world graphs and create noisy versions as target graphs, comparing FUGAL against FAQ across these four algorithmic dimensions. We find that warm-start initialization consistently improves both algorithms, and that exact line search is the dominant factor in closing the performance gap between them. The value of soft projection (Sinkhorn) and regularization terms is graph-dependent. They hurt on sparse graphs but help on denser ones. Overall, fine-tuned FUGAL outperforms warm-start FAQ on four of five datasets at moderate-to-high noise, confirming FUGAL's advantage while also revealing the conditions under which each
- combination works best.
-
-  However, warm-start initialization is computationally expensive, making it impractical for large graphs. Since the best results are
-  achieved with warm-start, a key open question is whether FUGAL with uniform initialization can approach warm-start quality , thus offering a better alignment-runtime tradeoff. A full runtime analysis is left as future work.
 
 
 
@@ -62,9 +57,11 @@
  Graph alignment seeks to find the best correspondence between the nodes of two graphs.
 
  FUGAL (Feature-Fortified Unrestricted Graph Alignment) is a state-of-the-art graph alignment algorithm that has been shown to surpass
-  prior methods in accuracy across standard benchmarks without significant overhead in runtime. However, prior evaluations report accuracy
-   and Frobenius norm in isolation, without comparing against the Frobenius norm achieved by the ground truth alignment itself. We adopt
-  this ground truth Frobenius norm as a reference point, and observe that despite outperforming competing algorithms, FUGAL remains
+  prior methods in accuracy across standard benchmarks without significant overhead in runtime.
+
+
+   We adopt
+  the ground truth Frobenius norm as a reference point, and observe that despite outperforming competing algorithms, FUGAL remains
   substantially below the best achievable alignment under noise. This gap motivates a systematic investigation of FUGAL's algorithmic
   choices to understand where performance is lost and where tuning can recover it. We additionally compare against FAQ, a widely-used and competitive baseline.
 
@@ -83,21 +80,21 @@ Formally, the problem can be formulated as:
 \end{equation}
 where $\Perm_n$ denotes the set of permutation matrices.  This is
 an instance of the Quadratic Assignment Problem (QAP), which is NP-hard in
-general. We follow the notations, definitions and theories presented in the FUGAL paper.
+general. This paper is an extension of the FUGAL paper and follows the notations, definitions and theories presented in it.
 
 
 The FUGAL algorithm~\cite{fugal2022} introduces two improvements over
 FAQ solver: (1) a Linear Assignment Problem (LAP) supplement that leverages
-simple structural graph feature (2)~ a regularizing term that guides the solution towards a
+simple structural graph features (2)~ a regularizing term that guides the solution towards a
 quasi-permutation matrix.
 
-While FUGAL demonstrates strong empirical
-performance, the interaction between its feature-weight hyperparameter $\muval$
-and its regularization schedule parameter $\lams$ has not been systematically
-studied.
+< todo : add fugal objective function?>
 
 
-\section{Experimental Setup}
+
+
+
+\section{Experiment Setup}
 \label{sec:setup}
 
 \subsection{Datasets}
@@ -111,13 +108,13 @@ We evaluate on five real-world graphs drawn from diverse domains.
   \label{tab:datasets}
   \begin{tabular}{lrrl}
     \toprule
-    Dataset & Nodes & Edges & Domain \\
+    Dataset & Nodes & Edges & Type \\
     \midrule
-    \texttt{highschool}  & 327  & 5{,}818 & High-school contact network (dense) \\
-    \texttt{multimanga}  & 1{,}004 & 8{,}323 & Manga character co-occurrence (medium-dense) \\
-    \texttt{euroroad}    & 1{,}174 & 1{,}417 & European road network (sparse) \\
-    \texttt{voles}       & 713  & 2{,}322 & Voles social network (sparse) \\
-    \texttt{netscience}  & 379  & 914  & Network science collaborations (sparse) \\
+    \texttt{highschool}  & 327  & 5818 & proximity \\
+    \texttt{multimagna}  & 1004 & 8323 & biological \\
+    \texttt{euroroad}    & 1174 & 1417 & infrastructure \\
+    \texttt{voles}       & 712  & 2391 & proximity \\
+    \texttt{netscience}  & 379  & 914  & collaborations \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -126,11 +123,10 @@ We evaluate on five real-world graphs drawn from diverse domains.
 
 To simulate real-world graph corruption, we generate noisy target graphs by
 randomly removing edges from the source graph.  Given a noise level
-$p \in \{0, 5, 10, 15, 20\}$ (as a percentage), each edge is independently
-removed with probability $p/100$, subject to the constraint that no node
+$p \in \{0, 5, 10, 15, 20\}$ (as a percentage), each edge is independently removed with probability corresponding to p, subject to the constraint that no node
 becomes isolated.  A random permutation of node labels is simultaneously
-applied to the target graph, so the ground-truth correspondence is known but
-must be recovered.
+applied to the target graph, so the ground-truth correspondence is known, but
+must be recovered. The generated source and target graphs are cached for consistent reproducibility of the results throughout the experiments.
 
 \subsection{Evaluation Metrics}
 
@@ -138,7 +134,7 @@ We report two complementary metrics:
 
 \begin{itemize}
   \item \textbf{Accuracy}: fraction of nodes correctly matched to their
-    ground-truth counterparts ($\hat{\sigma}(v) = \sigma^*(v)$).
+    ground-truth counterparts
   \item \textbf{Excess Frobenius norm}:
     $\frob{A\hat{P} - \hat{P}B}^2 - \frob{AP^* - P^*B}^2$,
     the gap between the alignment cost achieved by the algorithm and the cost
@@ -148,95 +144,68 @@ We report two complementary metrics:
     high degree.
 \end{itemize}
 
-All experiments run three independent trials and report means.
+All experiments run three independent trials across different noise levels and report means.
 
-\section{Results}
-\label{sec:results}
 
-\subsection{Baseline: FUGAL vs.\ FAQ with Uniform Initialization}
+\section{Experiment design with key algorithmic choices}
+
+
+\subsection{Establishing Baseline: FUGAL vs.\ FAQ with Uniform Initialization}
 \label{sec:baseline}
 
-\Cref{tab:baseline} compares FUGAL and FAQ (referred to as QAP in the implementation) when both use uniform initialization.  FUGAL outperforms FAQ on every dataset and noise level in terms of both accuracy and excess Frobenius norm.
+\Cref{tab:baseline} compares FUGAL and FAQ when both use uniform initialization.  FUGAL outperforms FAQ on every dataset and noise level in terms of accuracy and Frobenius norm.
 
 \begin{table}[H]
   \centering
-  \caption{Accuracy (acc) and excess Frobenius ($\Delta F = \frob{A\hat{P}-\hat{P}B}^2 - \frob{AP^*-P^*B}^2$) at noise levels 0, 10, 20 — uniform initialization.
-           For accuracy, higher is better; for $\Delta F$, lower is better. Bold indicates the better algorithm per metric.}
+  \caption{Accuracy at noise levels 0, 10, 20 (\%) with uniform initialization.
+           }
   \label{tab:baseline}
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{llrrrrrr}
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{llccccccc}
     \toprule
     & & \multicolumn{2}{c}{noise = 0} & \multicolumn{2}{c}{noise = 10} & \multicolumn{2}{c}{noise = 20} \\
     \cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
-    Dataset & Metric & FUGAL & FAQ & FUGAL & FAQ & FUGAL & FAQ \\
+    Dataset & & FUGAL & FAQ & FUGAL & FAQ & FUGAL & FAQ \\
     \midrule
-    \multirow{2}{*}{\texttt{highschool}}
-      & acc     & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.692 & \textbf{1.000} & 0.284 \\
-      & $\Delta F$ & \textbf{0}  & \textbf{0}     & \textbf{0}     & 3451  & \textbf{0}     & 5911  \\
-    \midrule
-    \multirow{2}{*}{\texttt{multimanga}}
-      & acc     & \textbf{0.846} & 0.480 & \textbf{0.789} & 0.350 & \textbf{0.635} & 0.291 \\
-      & $\Delta F$ & \textbf{3}  & 2428  & \textbf{145}   & 3160  & \textbf{1108}  & 3703  \\
-    \midrule
-    \multirow{2}{*}{\texttt{euroroad}}
-      & acc     & \textbf{0.944} & 0.013 & \textbf{0.732} & 0.005 & \textbf{0.248} & 0.005 \\
-      & $\Delta F$ & \textbf{128} & 2131 & \textbf{704}   & 1811  & 2017           & \textbf{1448} \\
-    \midrule
-    \multirow{2}{*}{\texttt{voles}}
-      & acc     & \textbf{0.950} & 0.691 & \textbf{0.936} & 0.163 & \textbf{0.893} & 0.039 \\
-      & $\Delta F$ & \textbf{0}  & 868   & \textbf{24}    & 3455  & \textbf{92}    & 3449  \\
-    \midrule
-    \multirow{2}{*}{\texttt{netscience}}
-      & acc     & \textbf{0.685} & 0.317 & \textbf{0.641} & 0.084 & \textbf{0.546} & 0.044 \\
-      & $\Delta F$ & \textbf{24} & 809   & \textbf{73}    & 1097  & \textbf{165}   & 996   \\
+    highschool  & acc  & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.692 & \textbf{1.000} & 0.284 \\
+    multimanga  & acc  & \textbf{0.846} & 0.482 & \textbf{0.789} & 0.352 & \textbf{0.635} & 0.291 \\
+    euroroad    & acc  & \textbf{0.944} & 0.013 & \textbf{0.732} & 0.005 & \textbf{0.248} & 0.005 \\
+    voles       & acc  & \textbf{0.948} & 0.691 & \textbf{0.936} & 0.163 & \textbf{0.893} & 0.039 \\
+    netscience  & acc  & \textbf{0.685} & 0.317 & \textbf{0.641} & 0.084 & \textbf{0.546} & 0.044 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-FAQ's performance collapses rapidly with noise, while FUGAL degrades more gracefully.  The gap is especially pronounced for sparse graphs (euroroad, voles, netscience).
 
-\subsection{Effect of Initialization}
+
+\subsection{Effect of warm-start initialization}
 \label{sec:init}
 
-We next apply warm-start initialization — a computationally expensive but high-quality starting point derived from a seed alignment — to both algorithms.
+
+We next apply warm-start initialization,  a computationally expensive but high-quality starting point to both algorithms. We set the baselines with FUGAL and FAQ, with and without the warm-start initializations. FAQ without initialization performed poorly, and hence, we are only looking at fugal\_init, faq\_init and fugal for our comparisons.
+
+faq\_init gives the best quality alignment for netscience, euroroad and voles datasets.
 
 \begin{table}[H]
   \centering
-  \caption{Accuracy (acc) and excess Frobenius ($\Delta F$) at noise = 10 and 20 — uniform vs.\ warm-start initialization.
-           FUGAL$_{\text{init}}$ shows the best accuracy across $\mu$ values.
-           Bold highlights the best value per metric and noise level.}
+  \caption{Accuracy at noise = 10 and 20 — comparing uniform vs.\ warm-start initialization.
+           \texttt{Fugal\_init} best accuracy across $\mu$ values.}
   \label{tab:init}
-  \setlength{\tabcolsep}{3.5pt}
-  \begin{tabular}{llrrrrrrrr}
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lcccccccc}
     \toprule
-    & & \multicolumn{4}{c}{noise = 10} & \multicolumn{4}{c}{noise = 20} \\
-    \cmidrule(lr){3-6}\cmidrule(lr){7-10}
-    Dataset & Metric & FUGAL & FUGAL$_{\text{init}}$ & FAQ & FAQ$_{\text{init}}$ &
-                       FUGAL & FUGAL$_{\text{init}}$ & FAQ & FAQ$_{\text{init}}$ \\
+    & \multicolumn{4}{c}{noise = 10} & \multicolumn{4}{c}{noise = 20} \\
+    \cmidrule(lr){2-5}\cmidrule(lr){6-9}
+    Dataset & FUGAL & FUGAL$_{\text{init}}$ & FAQ & FAQ$_{\text{init}}$ &
+              FUGAL & FUGAL$_{\text{init}}$ & FAQ & FAQ$_{\text{init}}$ \\
     \midrule
-    \multirow{2}{*}{\texttt{highschool}}
-      & acc     & \textbf{1.000} & \textbf{1.000} & 0.692 & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & 0.284 & \textbf{1.000} \\
-      & $\Delta F$ & \textbf{0} & \textbf{0}  & 3451  & \textbf{0}     & \textbf{0}     & \textbf{0}     & 5911  & \textbf{0}     \\
-    \midrule
-    \multirow{2}{*}{\texttt{multimanga}}
-      & acc     & 0.789 & 0.759 & 0.352 & 0.715 & 0.635 & 0.620 & 0.291 & 0.568 \\
-      & $\Delta F$ & \textbf{145} & 461 & 3160 & 681 & \textbf{1108} & 1276 & 3703 & 2323 \\
-    \midrule
-    \multirow{2}{*}{\texttt{euroroad}}
-      & acc     & 0.732 & 0.746 & 0.005 & \textbf{0.819} & 0.248 & 0.274 & 0.005 & \textbf{0.594} \\
-      & $\Delta F$ & 704 & 512 & 1811 & \textbf{101} & 2017 & 1825 & 1448 & \textbf{291} \\
-    \midrule
-    \multirow{2}{*}{\texttt{voles}}
-      & acc     & 0.935 & \textbf{0.942} & 0.163 & \textbf{0.942} & 0.893 & 0.905 & 0.039 & \textbf{0.908} \\
-      & $\Delta F$ & 24 & 21 & 3455 & \textbf{0} & 92 & 39 & 3449 & \textbf{11} \\
-    \midrule
-    \multirow{2}{*}{\texttt{netscience}}
-      & acc     & 0.641 & \textbf{0.672} & 0.084 & 0.669 & 0.546 & 0.573 & 0.044 & 0.551 \\
-      & $\Delta F$ & 73 & \textbf{17} & 1097 & 19 & 165 & 133 & 996 & \textbf{167}$^*$ \\
+    highschool & 1.000 & 1.000 & 0.692 & 1.000 & 1.000 & 1.000 & 0.284 & 1.000 \\
+    multimanga & 0.789 & 0.759 & 0.352 & 0.715 & 0.635 & 0.620 & 0.291 & 0.568 \\
+    euroroad   & 0.732 & 0.746 & 0.005 & 0.819 & 0.248 & 0.274 & 0.005 & 0.594 \\
+    voles      & 0.936 & 0.943 & 0.163 & 0.942 & 0.893 & 0.905 & 0.039 & 0.908 \\
+    netscience & 0.641 & 0.672 & 0.084 & 0.669 & 0.546 & 0.573 & 0.044 & 0.550 \\
     \bottomrule
   \end{tabular}
-  \smallskip\par\footnotesize
-  $^*$At noise 20, FAQ$_{\text{init}}$ has lower accuracy but slightly lower $\Delta F$ than FUGAL$_{\text{init}}$ on netscience.
 \end{table}
 
 Two observations stand out:
@@ -244,113 +213,135 @@ Two observations stand out:
 \begin{enumerate}
   \item \textbf{FUGAL gains little from warm-start.}  Initialization improves FUGAL's accuracy by at most 2--4 percentage points across datasets.  FUGAL's Frank-Wolfe iterations appear to escape poor initializations effectively on their own.
 
-  \item \textbf{FAQ gains enormously from warm-start.}  FAQ's accuracy jumps dramatically — e.g., from 0.039 to 0.908 on \texttt{voles} at noise 20, and from 0.284 to 1.000 on \texttt{highschool}.  However, this improvement comes at significant computational cost: warm-start initialization requires expensive seed-alignment computation, and in our experiments FAQ$_{\text{init}}$ ran roughly $60\times$ faster than FUGAL overall but the initialization procedure itself dominates the budget.
+  \item \textbf{FAQ gains enormously from warm-start.}  FAQ's accuracy jumps dramatically. It also outperforms FUGAL in 3 of the 5 datasets. However, this improvement comes at significant computational cost: warm-start initialization requires expensive seed-alignment computation.
 \end{enumerate}
 
-Despite the small benefit from initialization, FUGAL$_{\text{init}}$ provides a useful starting point for hyperparameter fine-tuning, studied next.
+Despite the small benefit, FUGAL with warm-start initialization provides a useful starting point for hyperparameter fine-tuning, studied next.
 
-\subsection{Hyperparameter Fine-Tuning of FUGAL with Warm Start}
-\label{sec:finetune}
+\subsection{Hyperparameter grid search for fugal\_init}
 
-FUGAL has two key hyperparameters: the feature weight $\muval$ and the regularization step $\lams$.  We perform a grid search over $\muval \in \{0.05, 0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 2.5, 3.0\}$ and $\lams \in \{0.2, 0.4, 0.6, 0.8, 1.0\}$ for each dataset and noise level.
+FUGAL has two key hyperparameters: the feature weight $\muval$ and the regularization step $\lams$.  We perform a grid search over $\muval \in \{0.05, 0.1, 0.3, 0.5, 1.0, 2.0, 3.0\}$ and $\lams \in \{0.2, 0.4, 0.6, 0.8, 1.0\}$ for each dataset and noise level.
+\\
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{gridsearch_netscience.png}
+    \caption{Hyperparameter grid search on netscience dataset for fugal\_init. Excess frobenius norm is captured for each combination. fugal\_init is getting equal or better results than faq\_init. Circled section shows instances where fugal\_init outperforms faq\_init. }
+    \label{fig:placeholder}
+\end{figure}
+
+
+
+Further, gradually reducing $\lams$ toward the
+  end of the optimization yielded consistent improvements.
+
 
 \Cref{tab:finetune} compares the best fine-tuned FUGAL$_{\text{init}}$ against FAQ$_{\text{init}}$.
 
 \begin{table}[H]
   \centering
-  \caption{Accuracy (acc) and excess Frobenius ($\Delta F$) — fine-tuned FUGAL$_{\text{init}}^*$ vs.\ FAQ$_{\text{init}}$.
-           Bold indicates the better result per metric. $\uparrow$ FUGAL wins on both metrics, $\downarrow$ FAQ wins on both, $\sim$ split.}
+  \caption{Accuracy — fine-tuned FUGAL$_{\text{init}}$ vs.\ FAQ$_{\text{init}}$.
+           Bold indicates the better result. $\uparrow$ FUGAL wins, $\downarrow$ FAQ wins.}
   \label{tab:finetune}
-  \setlength{\tabcolsep}{3.5pt}
-  \begin{tabular}{llrrrrrr}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lcccccc}
     \toprule
-    & & \multicolumn{2}{c}{noise = 5} & \multicolumn{2}{c}{noise = 10} & \multicolumn{2}{c}{noise = 20} \\
-    \cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){7-8}
-    Dataset & Metric & FUGAL$_{\text{init}}^*$ & FAQ$_{\text{init}}$ & FUGAL$_{\text{init}}^*$ & FAQ$_{\text{init}}$ &
+    & \multicolumn{2}{c}{noise = 5} & \multicolumn{2}{c}{noise = 10 (if avail)} & \multicolumn{2}{c}{noise = 20} \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+    Dataset & FUGAL$_{\text{init}}^*$ & FAQ$_{\text{init}}$ & FUGAL$_{\text{init}}^*$ & FAQ$_{\text{init}}$ &
               FUGAL$_{\text{init}}^*$ & FAQ$_{\text{init}}$ \\
     \midrule
-    \multirow{2}{*}{\texttt{highschool} $\uparrow$}
-      & acc     & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} \\
-      & $\Delta F$ & \textbf{0}  & \textbf{0}     & \textbf{0}     & \textbf{0}     & \textbf{0}     & \textbf{0}     \\
-    \midrule
-    \multirow{2}{*}{\texttt{multimanga} $\uparrow$}
-      & acc     & \textbf{0.833} & 0.821 & \textbf{0.758} & 0.715 & \textbf{0.629} & 0.567 \\
-      & $\Delta F$ & \textbf{3}  & 24    & \textbf{451}   & 683   & \textbf{1211}  & 2339  \\
-    \midrule
-    \multirow{2}{*}{\texttt{voles} $\uparrow$}
-      & acc     & \textbf{0.950} & 0.946 & \textbf{0.943} & 0.942 & \textbf{0.916} & 0.908 \\
-      & $\Delta F$ & \textbf{0}  & \textbf{0}     & \textbf{9}     & \textbf{0}$^*$ & \textbf{24}    & 11$^*$    \\
-    \midrule
-    \multirow{2}{*}{\texttt{netscience} $\sim$}
-      & acc     & 0.690 & \textbf{0.691} & \textbf{0.683} & 0.669 & \textbf{0.585} & 0.550 \\
-      & $\Delta F$ & \textbf{0}  & 5              & 21             & \textbf{19}    & \textbf{108}   & 185   \\
-    \midrule
-    \multirow{2}{*}{\texttt{euroroad} $\downarrow$}
-      & acc     & 0.868 & \textbf{0.894} & ---            & \textbf{0.819} & 0.356          & \textbf{0.594} \\
-      & $\Delta F$ & 337 & \textbf{31}    & ---            & \textbf{101}   & 1484           & \textbf{305}   \\
+    highschool & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} & \textbf{1.000} \\
+    multimanga & \textbf{0.833} $\uparrow$ & 0.821 & \textbf{0.758} $\uparrow$ & 0.715 & \textbf{0.629} $\uparrow$ & 0.567 \\
+    voles      & \textbf{0.950} $\uparrow$ & 0.946 & \textbf{0.943} $\uparrow$ & 0.942 & \textbf{0.916} $\uparrow$ & 0.908 \\
+    netscience & 0.690 & \textbf{0.691} & \textbf{0.683} $\uparrow$ & 0.669 & \textbf{0.585} $\uparrow$ & 0.550 \\
+    euroroad   & 0.868 & \textbf{0.894} $\downarrow$ & --- & \textbf{0.819} $\downarrow$ & 0.356 & \textbf{0.594} $\downarrow$ \\
     \bottomrule
   \end{tabular}
-  \smallskip\par\footnotesize
-  $^*$On voles, FUGAL$_{\text{init}}^*$ wins on accuracy at noise 10 and 20 while FAQ$_{\text{init}}$ has a marginally lower $\Delta F$.
-  The accuracy difference is more meaningful here as the $\Delta F$ gap is small (9 vs.\ 0 at noise 10; 24 vs.\ 11 at noise 20).
 \end{table}
 
-Fine-tuned FUGAL$_{\text{init}}$ beats FAQ$_{\text{init}}$ on four of the five datasets (highschool, multimanga, voles, netscience) at moderate-to-high noise.  The lone exception is \texttt{euroroad}, where FAQ$_{\text{init}}$ holds a substantial lead.  We investigate this case separately in \Cref{sec:euroroad}.
+This experiment gives us the best mu, lam\_step values per dataset noise combinations, which we use for the future experiments.
+Fine-tuned FUGAL$_{\text{init}}$ showed improvement in getting closer to the ground truth alignment in 4 of the 5 datasets. The lone exception is \texttt{euroroad}, where FAQ$_{\text{init}}$ holds a substantial lead.  We investigate this case separately in \Cref{sec:euroroad}.
 
 \subsection{The EuroRoad Case: Learning Rate Schedule}
 \label{sec:euroroad}
 
-\texttt{EuroRoad} is the sparsest graph in our benchmark (1417 edges over 1174 nodes, average degree $\approx$2.4).  The wide gap between fine-tuned FUGAL$_{\text{init}}$ and FAQ$_{\text{init}}$ prompted further investigation.
+\texttt{EuroRoad} is the sparsest graph in our benchmark. The wide gap between fine-tuned FUGAL$_{\text{init}}$ and FAQ$_{\text{init}}$ prompted further investigation and identified that FUGAL could benefit from the exact line search learning schedule, like in FAQ. Currently,
+FUGAL uses a fixed step size for its learning rate.
 
-We systematically removed FUGAL's extra objective terms (the LAP supplement and regularization) and found that this did \emph{not} improve results — indicating the issue is not with the extra terms but with optimization.  The key difference between FUGAL and FAQ is the learning rate: FUGAL uses a fixed step size, while FAQ employs an exact line search that adapts the step per iteration.
-
-We adopted FAQ's exact line search schedule within FUGAL$_{\text{init}}$ (referred to as \texttt{newalpha}).  \Cref{tab:newalpha} shows the improvement:
+We adopted FAQ's exact line search schedule within FUGAL$_{\text{init}}$ \Cref{tab:newalpha} shows the improvement:
 
 \begin{table}[H]
   \centering
-  \caption{Accuracy (acc) and excess Frobenius ($\Delta F$) on EuroRoad — effect of exact line search learning rate schedule.
-           Bold indicates the best value per metric and noise level.}
+  \caption{Accuracy on EuroRoad — effect of new learning rate schedule.}
   \label{tab:newalpha}
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lrrrrrr}
+  \begin{tabular}{lcccc}
     \toprule
-    & \multicolumn{2}{c}{FUGAL$_{\text{init}}$ (fixed step)} & \multicolumn{2}{c}{FUGAL$_{\text{init}}$ (newalpha)} & \multicolumn{2}{c}{FAQ$_{\text{init}}$} \\
-    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
-    Noise & acc & $\Delta F$ & acc & $\Delta F$ & acc & $\Delta F$ \\
+    Noise & FUGAL$_{\text{init}}$ (fixed step) & FUGAL$_{\text{init}}$ (newalpha) & FAQ$_{\text{init}}$ \\
     \midrule
-    5  & 0.868 & 337 & \textbf{0.890} & \textbf{24} & 0.894 & 31 \\
-    10 & ---   & --- & \textbf{0.821} & 152         & 0.819 & \textbf{101} \\
-    15 & 0.558 & 995 & \textbf{0.677} & \textbf{472} & 0.741 & 139 \\
-    20 & 0.356 & 1484 & \textbf{0.476} & \textbf{867} & 0.594 & 305 \\
+    5  & 0.868 & \textbf{0.890} & 0.894 \\
+    10 & --- & \textbf{0.821} & 0.819 \\
+    15 & 0.558 & \textbf{0.677} & 0.741 \\
+    20 & 0.356 & \textbf{0.476} & 0.594 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-The new learning schedule substantially narrows the gap with FAQ$_{\text{init}}$ at all noise levels, and even surpasses it at noise 10.  The gap that remains at higher noise levels (15, 20) suggests that on very sparse graphs, FUGAL's additional objective terms may be introducing more noise than signal when the graph itself is highly degraded.
+The new learning schedule substantially narrows the gap with FAQ$_{\text{init}}$ at all noise levels, and even surpasses it at noise 10.
 
+\subsection{Projection Matrix}
+FUGAL uses sinkhorn while FAQ uses hungarian. Soft projection via Sinkhorn is yielding optimal results in 4 of the 5 datasets, while in euroroad, hungarian seems to outperform sinkhorn. This is an interesting observation as it shows that sinkhorn is not always the best choice out there.
+
+
+\section{Results}
+
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{frob_gap_euroroad.png}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{frob_gap_highschool.png}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{frob_gap_netscience.png}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{frob_gap_multimanga.png}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\linewidth]{frob_gap_voles.png}
+\end{figure}
 \section{Discussion}
 \label{sec:discussion}
 
 \paragraph{Why FUGAL gains little from initialization.}
-FUGAL's Frank-Wolfe iterations, augmented by the LAP term, appear to guide the solution towards good alignment even from a uniform start.  The LAP supplement uses structural node features to bias the matching, effectively providing an implicit warm start at each iteration.  This likely explains the robustness of FUGAL to initialization.
+FUGAL's Frank-Wolfe iterations, augmented by the LAP term, appear to guide the solution towards good alignment even from a uniform start.
 
 \paragraph{Why FAQ gains enormously from initialization.}
-FAQ relies solely on the quadratic objective and has no structural bias.  From a random start, it tends to converge to poor local optima.  A good initialization effectively chooses the basin of attraction, and with warm-start, FAQ converges to high-quality solutions.  This is consistent with the broader literature on non-convex optimization for graph matching.
+FAQ relies solely on the quadratic objective and has no structural bias.  From a random start, it tends to converge to poor local optima.  With a good initialization, FAQ converges to high-quality solutions.  This is consistent with the broader literature on non-convex optimization for graph matching.
 
-\paragraph{Why EuroRoad favors FAQ.}
-EuroRoad is extremely sparse (average degree $\approx$2.4), which means the structural features used by FUGAL's LAP term carry little discriminative signal — most nodes have the same low degree.  Without useful features, FUGAL's extra terms may act as regularization noise.  FAQ's exact line search, by contrast, makes better use of the curvature of the quadratic objective and is less sensitive to the feature quality.  The new learning rate schedule largely confirms this: borrowing FAQ's step-size rule closes most of the gap.
 
-\paragraph{Why multimanga and voles favor FUGAL.}
-These graphs have richer structure (multimanga has 8323 edges and voles has community structure), providing more discriminative node features.  FUGAL's LAP supplement leverages these features effectively, giving it an edge over FAQ even with warm-start.
 
 \paragraph{Frobenius norm vs.\ accuracy.}
 Excess Frobenius is a strictly harder metric than accuracy.  A method can achieve high node-matching accuracy (e.g., 83\% of nodes correctly identified) while still incurring large edge mismatches if the mismatched nodes have high degrees. We observe this most clearly on multimanga and netscience, where algorithms may differ on accuracy by a small margin but differ substantially on excess Frobenius.
 
 \paragraph{$\muval$ sensitivity.}
-The optimal $\muval$ is dataset- and noise-dependent.  On dense graphs (highschool, multimanga), small values ($\muval \approx 0.05$--$0.5$) suffice, while on sparser graphs (euroroad, netscience at higher noise), larger values ($\muval \approx 1.0$--$2.0$) are preferred.  This suggests that when noise degrades the graph structure, stronger feature weighting can compensate.
+The optimal $\muval$ is dataset- and noise-dependent.  On dense graphs (highschool, multimanga), small values ($\muval \approx 0.05$--$0.5$) suffice, while on sparser graphs (euroroad, netscience at higher noise), larger values ($\muval \approx 1.0$--$2.0$) are preferred.
 
 \paragraph{$\lams$ sensitivity.}
-Optimal $\lams$ values cluster around $0.2$--$0.4$ for most datasets, indicating that a finer regularization step (slower annealing towards permutation) generally performs better.  EuroRoad is an exception where the regularization schedule matters less than the learning rate.
+Optimal $\lams$ values cluster around $0.2$--$0.4$ for most datasets, indicating that a finer regularization step generally performs better.
 
 \paragraph{Future experiments.}
 A natural next step is to evaluate FUGAL \emph{without} warm-start but \emph{with} the exact line search schedule.  If this combination closes the gap with warm-start results, it would offer a compelling alignment-runtime tradeoff: competitive accuracy at the cost of only the FUGAL runtime (no expensive seed computation).  Adaptive or learned hyperparameter selection (e.g., using graph structural statistics to predict good $\muval$ and $\lams$) is another promising direction.
@@ -358,7 +349,10 @@ A natural next step is to evaluate FUGAL \emph{without} warm-start but \emph{wit
 \section{Conclusion}
 \label{sec:conclusion}
 
-We systematically studied four algorithmic dimensions of FUGAL — initialization, learning rate schedule, projection type, and objective terms — across five real-world graphs at five noise levels.  Our main findings are:
+We systematically studied four algorithmic dimensions for graph alignment problem: initialization, learning rate schedule, projection type, and objective terms, across five real-world graphs at five noise levels.
+From the different experiments we conducted, we find that finding a single universal algorithm that works optimally on all the datasets is hard, and there is no clear winner. But, on a positive note, we discover a few promising algorithmic trends.
+
+Our main findings are:
 
 \begin{enumerate}
   \item \textbf{FUGAL outperforms FAQ with uniform initialization} on all five datasets, confirming prior results.
@@ -375,35 +369,9 @@ We systematically studied four algorithmic dimensions of FUGAL — initializatio
 Warm-start initialization is computationally expensive and unlikely to scale to large graphs.  Whether FUGAL with uniform initialization and the new learning rate schedule can approach warm-start quality remains an open question and the most promising direction for future work.
 
 
-% ══════════════════════════════════════════════════════════════════════════════
+
 \begin{thebibliography}{9}
 
-\bibitem{burkard1998qap}
-R.~E.~Burkard, E.~\c{C}ela, P.~M.~Pardalos, and L.~S.~Pitsoulis.
-\newblock The quadratic assignment problem.
-\newblock In \emph{Handbook of Combinatorial Optimization}, pages 1713--1809.
-  Springer, 1998.
-
-\bibitem{fugal2022}
-A.~Khan, B.~Hamann, and others.
-\newblock FUGAL: Feature-guided graph alignment.
-\newblock In \emph{Proceedings of the ACM Web Conference (TheWebConf)}, 2022.
-
-\bibitem{scipy2020}
-P.~Virtanen et al.
-\newblock {SciPy} 1.0: Fundamental algorithms for scientific computing in
-  {Python}.
-\newblock \emph{Nature Methods}, 17:261--272, 2020.
-
-\bibitem{sinkhorn1967}
-R.~Sinkhorn.
-\newblock Diagonal equivalence to matrices with prescribed row and column sums.
-\newblock \emph{The American Mathematical Monthly}, 74(4):402--405, 1967.
-
-\bibitem{frankwolfe1956}
-M.~Frank and P.~Wolfe.
-\newblock An algorithm for quadratic programming.
-\newblock \emph{Naval Research Logistics Quarterly}, 3(1-2):95--110, 1956.
 
 \bibitem{vogelstein2015}
 J.~T.~Vogelstein et al.

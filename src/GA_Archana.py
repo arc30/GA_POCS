@@ -295,6 +295,10 @@ def convex_init_exp_3(A, B, D, mu, niter, P0=None, lam_step=1.0):
     if P0 is None:
         P0 = relaxed_normAPPB_FW_seeds(A, B)
     P = torch.from_numpy(P0).double()
+
+    P = torch.ones((n, n), dtype=torch.float64)
+    P = P / n
+
     ones = torch.ones(n, dtype = torch.float64)
     mat_ones = torch.ones((n, n), dtype = torch.float64)
     reg = 1.0
@@ -318,11 +322,17 @@ def convex_init_exp_3(A, B, D, mu, niter, P0=None, lam_step=1.0):
 """
 Fugal with FAQ's better alpha calculation.
 """
-def convex_init_complex_alpha(A, B, D, mu, niter, P0=None, lam_step=1.0):
+def convex_init_complex_alpha(A, B, D, mu, niter, P0=None, lam_step=1.0, useUniformInit=False):
     n = len(A)
-    if P0 is None:
-        P0 = relaxed_normAPPB_FW_seeds(A, B)
-    P = torch.from_numpy(P0).double()
+
+    if useUniformInit:
+        P = torch.ones((n, n), dtype=torch.float64)
+        P = P / n
+    else:
+        if P0 is None:
+            P0 = relaxed_normAPPB_FW_seeds(A, B)
+        P = torch.from_numpy(P0).double()
+
     ones = torch.ones(n, dtype = torch.float64)
     mat_ones = torch.ones((n, n), dtype = torch.float64)
     reg = 1.0
@@ -520,7 +530,7 @@ def Alpine_pp_new(A,B, K, niter,A1,weight=1):
     return Pi, forbnorm,row_ind,col_ind
 
 
-def Fugal(Src,Tar ,iter,simple=True,mu=1,EFN=5):
+def Fugal(Src,Tar ,iter,mu=None,lam_step=1.0):
     torch.set_num_threads(40)
     dtype = np.float64
     for i in range(Src.shape[0]):
@@ -546,20 +556,22 @@ def Fugal(Src,Tar ,iter,simple=True,mu=1,EFN=5):
     D = eucledian_dist(F1, F2, n)
     D = torch.tensor(D, dtype = torch.float64)
     #just see Fugal initialization
-    if (n< 370):
-        mu=0.5
-    elif (n<400):
-        mu=1
-    elif (n<700):
-        mu=0.1
-    elif (n<1165):
-        mu=0.5
-    elif (n<1700):
-        mu=2
-    else:
-        mu=1
+    if mu is None:
+        if (n< 370):
+            mu=0.5
+        elif (n<400):
+            mu=1
+        elif (n<700):
+            mu=0.1
+        elif (n<1165):
+            mu=0.5
+        elif (n<1700):
+            mu=2
+        else:
+            mu=1
     # P = convex_init(A, B, D, mu, iter)
-    P = convex_init_exp_2(A, B, D, mu, iter)
+    P=convex_init_complex_alpha(A, B, D, mu, iter, None, lam_step, True)
+
 
     return P
 
@@ -606,7 +618,7 @@ def Fugal_init(Src, Tar, iter, simple=True, mu=None, EFN=5, P0=None, lam_step=1.
         else:
             mu=1
     #   change back to convex_init1 after exps are complete
-    P=convex_init_complex_alpha(A, B, D, mu, iter, P0, lam_step)
+    P=convex_init_complex_alpha(A, B, D, mu, iter, P0, lam_step, False)
     return P
 
 

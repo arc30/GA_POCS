@@ -229,7 +229,7 @@ def run_experiments(muVals, lamSteps, algos, datasets, dry_run, results_cache):
 
                     # multiple parameters only for fugal_init
                     params = [(None, None)]
-                    if algo == "fugal_init":
+                    if algo == "fugal_init" or algo == "fugal":
                         params = [(mu, ls) for mu in muVals for ls in lamSteps]
 
                     for mu, lam_step in params:
@@ -257,7 +257,7 @@ def run_experiments(muVals, lamSteps, algos, datasets, dry_run, results_cache):
 
                             elif algo == "fugal":
                                 # fugal algo
-                                permMatrix = Fugal(src_adj, tar_adj, iter=10)
+                                permMatrix = Fugal(src_adj, tar_adj, iter=10, mu=mu, lam_step=lam_step)
 
                             elif algo == "qap":
                                 permMatrix = QAP(src_adj, tar_adj)
