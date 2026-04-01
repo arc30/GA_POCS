@@ -1,6 +1,6 @@
 # Graph Alignment: FUGAL vs FAQ Benchmarking
 
-This repository contains the experimental code for benchmarking [FUGAL](https://arxiv.org/abs/2408.04949) against FAQ (SciPy's `quadratic_assignment`) on real-world graphs under noise, with a focus on the effect of warm initialization and hyperparameter tuning.
+This repository contains the experimental code for benchmarking [FUGAL](https://dl.acm.org/doi/10.5555/3737916.3738532) against [FAQ](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0121002) on real-world graphs under noise, with a focus on the effect of warm initialization and hyperparameter tuning.
 
 ## Overview
 
