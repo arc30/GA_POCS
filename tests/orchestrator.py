@@ -2,8 +2,8 @@ import argparse
 import csv
 import os
 import sys
+import time
 from datetime import datetime
-from typing import Dict, Any
 
 import networkx as nx
 import numpy as np
@@ -61,7 +61,6 @@ def _print(str):
 
 _print("Noise: " + str(NOISE_LEVELS))
 
-_print("Changed alpha schedule, using sinkhorn but with diff reg")
 
 
 def _write_csv(results_batch: Dict[str, Any]):
@@ -95,10 +94,15 @@ def save_perm_matrix(ds_name, noise_pct, trial_idx, src_adj, tar_adj):
     fw_fname = f"{ds_name}_noise{noise_pct}_trial{trial_idx}_fw.npz"
     fw_fpath = os.path.join(P0_DIR, fw_fname)
 
-    if not os.path.exists(fw_fpath):
-        print(f"  Computing initial permutaion matrix for {ds_name} "
+    if True: #not os.path.exists(fw_fpath):
+        _print(f"  Computing initial permutaion matrix for {ds_name} "
               f"noise={noise_pct}% trial={trial_idx} ...")
+        p0_start = time.time()
         P0 = relaxed_normAPPB_FW_seeds(src_adj, tar_adj)
+        p0_elapsed = time.time() - p0_start
+        _print(f"  Completed initial permutaion matrix for {ds_name} "
+              f"noise={noise_pct}% trial={trial_idx} "
+              f"[P0 time: {p0_elapsed:.3f}s]")
         np.savez(fw_fpath, P0=P0)
     else:
         _print(f"  [cached] Initial permutaion matrix for {ds_name} ")
@@ -124,20 +128,22 @@ def generate_and_save_graphs():
                 fpath = os.path.join(DATA_DIR, fname)
 
                 if os.path.exists(fpath):
-                    _print(f"  [skip] {fname} already exists")
-                    continue
+                    # _print(f"  [skip] {fname} already exists")
+                    Src_adj = np.load(fpath)["Src_adj"]
+                    Tar_adj = np.load(fpath)["Tar_adj"]
 
-                np.random.seed(seed)
-                Src_e, Tar_e, GT = generate_graphs(edges, 0, noise)
-                Src_adj = edges_to_adj(Src_e, n)
-                Tar_adj = edges_to_adj(Tar_e, n)
+                else:
+                    np.random.seed(seed)
+                    Src_e, Tar_e, GT = generate_graphs(edges, 0, noise)
+                    Src_adj = edges_to_adj(Src_e, n)
+                    Tar_adj = edges_to_adj(Tar_e, n)
 
-                np.savez(fpath, Src_adj=Src_adj, Tar_adj=Tar_adj,
-                         GT0=GT[0], GT1=GT[1],
-                         seed=seed, noise=noise)
+                    np.savez(fpath, Src_adj=Src_adj, Tar_adj=Tar_adj,
+                             GT0=GT[0], GT1=GT[1],
+                             seed=seed, noise=noise)
 
                 save_perm_matrix(ds_name, noise_pct, trial_idx, Src_adj, Tar_adj)
-                print(f"  [saved] {fname}")
+                # _print(f"  [saved] {fname}")
 
     saved_graphs = [f for f in os.listdir(DATA_DIR) if f.endswith(".npz")]
     saved_perm_matrices = [f for f in os.listdir(P0_DIR) if f.endswith(".npz")]
@@ -318,7 +324,7 @@ def main():
     # Interface shall support a list of lam_step values
     parser.add_argument("--lam-step", nargs='+', type=float, default=[1])
     # Interface should take list of algos
-    parser.add_argument("--algos", nargs='+',  type=str, default=['fugal_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
+    parser.add_argument("--algos", nargs='+',  type=str, default=['qap_init'], choices=['fugal_init', 'fugal', 'qap', 'qap_init'])
     # List of datasets
     parser.add_argument("--ds", nargs='*',  type=str, default=['netscience'], choices=['netscience', 'highschool', 'euroroad', 'multimanga', 'voles'])
     # Dry run

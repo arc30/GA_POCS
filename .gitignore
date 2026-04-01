@@ -5,8 +5,8 @@ __pycache__/
 .python-version
 
 # Benchmark outputs (regenerable)
-# baseline_data/
-# baseline_fw_seeds/
+ baseline_data/
+ baseline_fw_seeds/
 
 
 
@@ -26,3 +26,5 @@ __pycache__/
 *.egg-info/
 
 results/
+report/
+csvs/

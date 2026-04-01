@@ -711,7 +711,6 @@ def QAP(Src,Tar):
     A = torch.tensor((Src), dtype = torch.float64)
     B = torch.tensor((Tar), dtype = torch.float64)
     res_qap = quadratic_assignment(-Tar,Src,method='faq',options={"P0": P, "maxiter": 30})
-    #res_qap = quadratic_assignment(-Tar,Src,method='faq',options={"maxiter": 30})
 
     perm = res_qap.col_ind
     P_perm = np.zeros((len(perm), len(perm)))
